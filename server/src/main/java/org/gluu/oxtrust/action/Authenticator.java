@@ -115,7 +115,7 @@ public class Authenticator implements Serializable {
 	String viewIdBeforeLoginRedirect;
 
 	@In(create = true)
-	@Out(scope = ScopeType.SESSION)
+	@Out(scope = ScopeType.SESSION, required = false)
 	private OauthData oauthData;
 
 	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
@@ -281,9 +281,15 @@ public class Authenticator implements Serializable {
 	public void processLogout() throws Exception {
 		ssoLoginAction.logout();
 		oAuthlLogout();
+
+		postLogout();
 	}
 
 	public String postLogout() {
+		if (identity.isLoggedIn()) {
+			identity.logout();
+		}
+
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
@@ -302,6 +308,7 @@ public class Authenticator implements Serializable {
 		oauthData.setUserUid(null);
 		oauthData.setIdToken(null);
 		oauthData.setSessionId(null);
+		oauthData = null;
 
 		FacesContext.getCurrentInstance().getExternalContext().redirect(clientRequest.getUri());
 	}
