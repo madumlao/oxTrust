@@ -5,7 +5,7 @@
 	<groupId>org.xdi</groupId>
 	<artifactId>oxtrust</artifactId>
 	<packaging>pom</packaging>
-	<version>1.7.0.Beta5</version>
+	<version>1.7.0.Beta6</version>
 	<name>oxTrust</name>
 	<url>http://ox.gluu.org</url>
 
@@ -22,8 +22,8 @@
 		<drools.version>5.3.3.Final</drools.version>
 		<arquillian.version>1.1.2.Final</arquillian.version>
 		<shibboleth.version>1.1.0</shibboleth.version>
-		<oxcore.version>1.7.0.Beta5</oxcore.version>
-		<oxauth.version>1.7.0.Beta5</oxauth.version>
+		<oxcore.version>1.7.0.Beta6</oxcore.version>
+		<oxauth.version>1.7.0.Beta6</oxauth.version>
 	</properties>
 
 	<prerequisites>
