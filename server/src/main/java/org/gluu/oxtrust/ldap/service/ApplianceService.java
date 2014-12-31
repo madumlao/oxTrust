@@ -22,7 +22,7 @@ import org.jboss.seam.log.Log;
 import org.xdi.config.oxtrust.ApplicationConfiguration;
 import org.xdi.model.AuthenticationScriptUsageType;
 import org.xdi.model.ProgrammingLanguage;
-import org.xdi.model.cusom.script.type.CustomScriptType;
+import org.xdi.model.custom.script.CustomScriptType;
 import org.xdi.util.StringHelper;
 
 /**
@@ -211,7 +211,8 @@ public class ApplianceService {
 	}
 
 	public CustomScriptType[] getCustomScriptTypes() {
-		return new CustomScriptType[] { CustomScriptType.CUSTOM_AUTHENTICATION, CustomScriptType.CLIENT_REGISTRATION };
+		return new CustomScriptType[] { CustomScriptType.CUSTOM_AUTHENTICATION, CustomScriptType.CLIENT_REGISTRATION,
+				CustomScriptType.USER_REGISTRATION, CustomScriptType.CACHE_REFRESH };
 	}
 
 }
