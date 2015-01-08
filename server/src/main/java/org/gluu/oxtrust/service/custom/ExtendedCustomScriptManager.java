@@ -4,7 +4,7 @@
  * Copyright (c) 2014, Gluu
  */
 
-package org.gluu.oxtrust.service;
+package org.gluu.oxtrust.service.custom;
 
 import org.jboss.seam.Component;
 import org.jboss.seam.ScopeType;
@@ -19,7 +19,7 @@ import org.xdi.service.custom.script.CustomScriptManager;
  * @author Yuriy Movchan Date: 12/03/2014
  */
 @Scope(ScopeType.APPLICATION)
-@Name("extendedCustomScriptManager")
+@Name("customScriptManager")
 @AutoCreate
 // Remove this class after CE 1.7 release
 public class ExtendedCustomScriptManager extends CustomScriptManager {
