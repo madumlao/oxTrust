@@ -163,7 +163,7 @@ public class AppInitializer {
 
 		logSizeChecker();
 
-		List<CustomScriptType> supportedCustomScriptTypes = Arrays.asList( CustomScriptType.CACHE_REFRESH, CustomScriptType.USER_REGISTRATION );
+		List<CustomScriptType> supportedCustomScriptTypes = Arrays.asList( CustomScriptType.CACHE_REFRESH, CustomScriptType.UPDATE_USER, CustomScriptType.USER_REGISTRATION, CustomScriptType.ID_GENERATOR );
         CustomScriptManager.instance().init(supportedCustomScriptTypes);
 	}
 
@@ -196,9 +196,9 @@ public class AppInitializer {
 		}
 		log.debug("OxRegistrationConfiguration parsed: linksExpirationFrequency: " + linksExpirationFrequency + ", accountsExpirationServiceFrequency: " + accountsExpirationServiceFrequency + ", accountsTimeLimited: " + accountsTimeLimited);
 
-		RegistrationsExpirationService.instance().expireLinks(calendar.getTime(), linksExpirationFrequency);
+		RegistrationsExpirationService.instance().expireLinks(calendar.getTime(), linksExpirationFrequency * 1000L);
 		if(accountsTimeLimited){
-			RegistrationsExpirationService.instance().expireUsers(calendar.getTime(), accountsExpirationServiceFrequency);
+			RegistrationsExpirationService.instance().expireUsers(calendar.getTime(), accountsExpirationServiceFrequency * 1000L);
 		}
 
 	}
