@@ -1,21 +1,20 @@
 <!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <ui:composition xmlns="http://www.w3.org/1999/xhtml"
-	xmlns:s="http://jboss.org/schema/seam/taglib"
-	xmlns:ui="http://java.sun.com/jsf/facelets"
-	xmlns:f="http://java.sun.com/jsf/core"
-	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+	xmlns:f="http://xmlns.jcp.org/jsf/core"
+	xmlns:h="http://xmlns.jcp.org/jsf/html"
 	xmlns:a4j="http://richfaces.org/a4j"
-	xmlns:rich="http://richfaces.org/rich" xmlns:richext="http://java.sun.com/jsf/composite/richext"
+	xmlns:rich="http://richfaces.org/rich" xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
 	template="/WEB-INF/incl/layout/newtemplate.xhtml">
 
     <ui:define name="body">
         <section class="content-header">
-            <h1 style="color: #333;">Configuration<small><i class="fa fa-caret-right" style="color: #333 !important;" /> CAS Protocol</small></h1>
+            <h1 style="color: #333;">#{msg['configuration.configuration']}<small><i class="fa fa-caret-right" style="color: #333 !important;" /> #{msg['configuration.casProtocol']}</small></h1>
             
             <ol class="breadcrumb">
                     <li><a href="#{request.contextPath}/configuration/casProtocol"><i
-                            class="fa fa-home"></i> CAS Protocol</a></li>
+                            class="fa fa-home"></i> #{msg['configuration.casProtocol']}</a></li>
             </ol>
         </section>
 

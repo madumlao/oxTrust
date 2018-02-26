@@ -6,7 +6,7 @@
 			<PatternLayout pattern="%d %-5p [%t] [%C{6}] (%F:%L) - %m%n" />
 		</Console>
 
-		<RollingFile name="FILE" fileName="${sys:catalina.base}/logs/oxtrust.log" filePattern="${sys:catalina.base}/logs/oxtrust-%d{yyyy-MM-dd}-%i.log">
+		<RollingFile name="FILE" fileName="${sys:log.base}/logs/oxtrust.log" filePattern="${sys:log.base}/logs/oxtrust-%d{yyyy-MM-dd}-%i.log">
 			<PatternLayout pattern="%d %-5p [%t] [%C{6}] (%F:%L) - %m%n" />
 
 			<Policies>
@@ -16,7 +16,7 @@
 			<DefaultRolloverStrategy max="30" />
 		</RollingFile>
 
-		<RollingFile name="OX_PERSISTENCE_FILE" fileName="${sys:catalina.base}/logs/oxtrust_persistence.log" filePattern="${sys:catalina.base}/logs/oxtrust_persistence-%d{yyyy-MM-dd}-%i.log">
+		<RollingFile name="OX_PERSISTENCE_FILE" fileName="${sys:log.base}/logs/oxtrust_persistence.log" filePattern="${sys:log.base}/logs/oxtrust_persistence-%d{yyyy-MM-dd}-%i.log">
 			<PatternLayout pattern="%d %-5p [%t] [%C{6}] (%F:%L) - %m%n" />
 
 			<Policies>
@@ -26,8 +26,8 @@
 			<DefaultRolloverStrategy max="30" />
 		</RollingFile>
 
-		<RollingFile name="OX_PERSISTENCE_LDAP_STATISTICS_FILE" fileName="${sys:catalina.base}/logs/oxtrust_persistence_ldap_statistics.log"
-			filePattern="${sys:catalina.base}/logs/oxtrust_persistence_ldap_statistics-%d{yyyy-MM-dd}-%i.log">
+		<RollingFile name="OX_PERSISTENCE_LDAP_STATISTICS_FILE" fileName="${sys:log.base}/logs/oxtrust_persistence_ldap_statistics.log"
+			filePattern="${sys:log.base}/logs/oxtrust_persistence_ldap_statistics-%d{yyyy-MM-dd}-%i.log">
 
 			<PatternLayout pattern="%d %-5p [%t] [%C{6}] (%F:%L) - %m%n" />
 
@@ -38,7 +38,7 @@
 			<DefaultRolloverStrategy max="30" />
 		</RollingFile>
 
-		<RollingFile name="OX_SCRIPT_LOG_FILE" fileName="${sys:catalina.base}/logs/oxtrust_script.log" filePattern="${sys:catalina.base}/logs/oxtrust_script-%d{yyyy-MM-dd}-%i.log">
+		<RollingFile name="OX_SCRIPT_LOG_FILE" fileName="${sys:log.base}/logs/oxtrust_script.log" filePattern="${sys:log.base}/logs/oxtrust_script-%d{yyyy-MM-dd}-%i.log">
 			<PatternLayout pattern="%d %-5p [%t] [%C{6}] (%F:%L) - %m%n" />
 
 			<Policies>
@@ -48,7 +48,7 @@
 			<DefaultRolloverStrategy max="30" />
 		</RollingFile>
 
-		<RollingFile name="OX_CACHE_REFRESH_FILE" fileName="${sys:catalina.base}/logs/oxtrust_cache_refresh.log" filePattern="${sys:catalina.base}/logs/oxtrust_cache_refresh-%d{yyyy-MM-dd}-%i.log">
+		<RollingFile name="OX_CACHE_REFRESH_FILE" fileName="${sys:log.base}/logs/oxtrust_cache_refresh.log" filePattern="${sys:log.base}/logs/oxtrust_cache_refresh-%d{yyyy-MM-dd}-%i.log">
 			<PatternLayout pattern="%d %-5p [%t] [%C{6}] (%F:%L) - %m%n" />
 
 			<Policies>
@@ -58,8 +58,8 @@
 			<DefaultRolloverStrategy max="30" />
 		</RollingFile>
 
-		<RollingFile name="OX_CACHE_REFRESH_PYTHON_FILE" fileName="${sys:catalina.base}/logs/oxtrust_cache_refresh_python.log"
-			filePattern="${sys:catalina.base}/logs/oxtrust_cache_refresh_python-%d{yyyy-MM-dd}-%i.log">
+		<RollingFile name="OX_CACHE_REFRESH_PYTHON_FILE" fileName="${sys:log.base}/logs/oxtrust_cache_refresh_python.log"
+			filePattern="${sys:log.base}/logs/oxtrust_cache_refresh_python-%d{yyyy-MM-dd}-%i.log">
 			<PatternLayout pattern="%d %-5p [%t] [%C{6}] (%F:%L) - %m%n" />
 
 			<Policies>
@@ -69,7 +69,7 @@
 			<DefaultRolloverStrategy max="30" />
 		</RollingFile>
 
-		<RollingFile name="OX_APACHEHC_LOG_FILE" fileName="${sys:catalina.base}/logs/oxtrust_apachehc.log" filePattern="${sys:catalina.base}/logs/oxtrust_apachehc-%d{yyyy-MM-dd}-%i.log">
+		<RollingFile name="OX_APACHEHC_LOG_FILE" fileName="${sys:log.base}/logs/oxtrust_apachehc.log" filePattern="${sys:log.base}/logs/oxtrust_apachehc-%d{yyyy-MM-dd}-%i.log">
 			<PatternLayout pattern="%d %-5p [%t] [%C{6}] (%F:%L) - %m%n" />
 
 			<Policies>
@@ -104,38 +104,28 @@
 		<Logger name="org.ajax4jsf.cache" level="error" />
 
 
-		<!-- ############### Seam logging ################### -->
-		<Logger name="org.jboss.seam" level="info" />
+		<!-- ############### JSF2 logging ################### -->
+		<Logger name="javax.faces" level="error" />
+		<Logger name="com.sun.faces" level="error" />
+		<Logger name="javax.enterprise.resource.webcontainer.jsf" level="error" />
 
-		<!-- These things are too noisy
-		<category name="org.jboss.seam.jsf.SeamVariableResolver" level="info" />
-		<category name="org.jboss.seam.contexts.Contexts" level="info" />
-		<category name="org.jboss.seam.Component" level="info" />
-		<category name="org.jboss.seam.deployment.Scanner" level="info" />
-		<category name="org.jboss.seam.util.Naming" level="info" />
-		<category name="org.jboss.seam.debug.hot" level="info" />
-		<category name="org.jboss.seam.core.Events" level="info" />
-		-->
-
-		<!-- Debugging conversations and persistence contexts
-		<Logger name="org.jboss.seam.core.Manager" level="debug" />
-		<Logger name="org.jboss.seam.core.ManagedPersistenceContext" level="debug" />
-		<Logger name="org.jboss.seam.jsf.AbstractSeamPhaseListener" level="debug" />
-		<Logger name="org.jboss.seam.interceptors.ConversationInterceptor" level="debug" />
-		<Logger name="org.jboss.seam.contexts.Lifecycle" level="debug" />
-		<Logger name="org.hibernate.impl.SessionImpl" level="debug" />
-		<Logger name="org.hibernate.event.def.AbstractFlushingEventListener" level="debug" />
-		-->
+		<!-- Disable JUL logging -->
+		<logger name="com.sun.common.util.logging" additivity="false">
+		</logger>
 
 		<logger name="org.gluu.site.ldap" level="${log4j.default.log.level}" additivity="false">
 			<AppenderRef ref="OX_PERSISTENCE_FILE" />
 		</logger>
 
+		<Logger name="org.gluu.persist" level="${log4j.default.log.level}" additivity="false">
+			<AppenderRef ref="OX_PERSISTENCE_FILE" />
+		</Logger>
+
 		<logger name="com.unboundid.ldap.sdk.LDAPConnection" level="${log4j.default.log.level}" additivity="false">
 			<AppenderRef ref="OX_PERSISTENCE_FILE" />
 		</logger>
 
-		<logger name="org.gluu.oxtrust.ldap.service.status.ldap" level="${log4j.default.log.level}" additivity="false">
+		<logger name="org.gluu.oxtrust.service.status.ldap" level="${log4j.default.log.level}" additivity="false">
 			<AppenderRef ref="OX_PERSISTENCE_LDAP_STATISTICS_FILE" />
 		</logger>
 

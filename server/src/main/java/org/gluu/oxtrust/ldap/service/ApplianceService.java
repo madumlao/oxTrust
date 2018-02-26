@@ -6,44 +6,49 @@
 
 package org.gluu.oxtrust.ldap.service;
 
-import java.io.File;
-import java.util.List;
-
 import org.gluu.oxtrust.model.GluuAppliance;
-import org.gluu.site.ldap.persistence.LdapEntryManager;
-import org.jboss.seam.Component;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.AutoCreate;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.log.Log;
-import org.xdi.config.oxtrust.ApplicationConfiguration;
+import org.gluu.persist.ldap.impl.LdapEntryManager;
+import org.slf4j.Logger;
+import org.xdi.config.oxtrust.AppConfiguration;
 import org.xdi.model.AuthenticationScriptUsageType;
 import org.xdi.model.ProgrammingLanguage;
 import org.xdi.model.ScriptLocationType;
+import org.xdi.model.SmtpConfiguration;
 import org.xdi.model.custom.script.CustomScriptType;
 import org.xdi.util.StringHelper;
+import org.xdi.util.security.StringEncrypter.EncryptionException;
+
+import javax.ejb.Stateless;
+import javax.inject.Inject;
+import javax.inject.Named;
+import java.io.File;
+import java.io.Serializable;
+import java.util.List;
 
 /**
  * GluuAppliance service
  * 
  * @author Reda Zerrad Date: 08.10.2012
  */
-@Scope(ScopeType.STATELESS)
-@Name("applianceService")
-@AutoCreate
-public class ApplianceService {
+@Stateless
+@Named("applianceService")
+public class ApplianceService implements Serializable {
 
-	@Logger
-	private Log log;
+	private static final long serialVersionUID = 8842838732456296435L;
 
-	@In
-	private LdapEntryManager ldapEntryManager;
+	@Inject
+	private Logger log;
 
-	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
-	private ApplicationConfiguration applicationConfiguration;
+	@Inject
+	private LdapEntryManager ldapEntryManager;	
+	@Inject
+	private OrganizationService organizationService;
+
+	@Inject
+	private AppConfiguration appConfiguration;
+	
+	@Inject
+	private EncryptionService encryptionService;
 
 	public boolean contains(String applianceDn) {
 		return ldapEntryManager.contains(GluuAppliance.class, applianceDn);
@@ -152,7 +157,7 @@ public class ApplianceService {
 	 * @throws Exception
 	 */
 	public String getDnForAppliance(String inum) {
-		String baseDn = OrganizationService.instance().getBaseDn();
+		String baseDn = organizationService.getBaseDn();
 		if (StringHelper.isEmpty(inum)) {
 			return String.format("ou=appliances,%s", baseDn);
 		}
@@ -171,16 +176,7 @@ public class ApplianceService {
 	}
 
 	public String getApplianceInum() {
-		return applicationConfiguration.getApplianceInum();
-	}
-
-	/**
-	 * Get applianceService instance
-	 * 
-	 * @return ApplianceService instance
-	 */
-	public static ApplianceService instance() {
-		return (ApplianceService) Component.getInstance(ApplianceService.class);
+		return appConfiguration.getApplianceInum();
 	}
 
 	/**
@@ -189,7 +185,7 @@ public class ApplianceService {
 	 * @author �Oleksiy Tataryn�
 	 */
 	public void restartServices() {
-		String triggerFileName = applicationConfiguration.getServicesRestartTrigger();
+		String triggerFileName = appConfiguration.getServicesRestartTrigger();
 		if (StringHelper.isNotEmpty(triggerFileName)) {
 			log.info("Removing " + triggerFileName);
 			File triggerFile = new File(triggerFileName);
@@ -216,9 +212,40 @@ public class ApplianceService {
 	}
 
 	public CustomScriptType[] getCustomScriptTypes() {
-		return new CustomScriptType[] { CustomScriptType.PERSON_AUTHENTICATION, CustomScriptType.UPDATE_USER,
+		return new CustomScriptType[] { CustomScriptType.PERSON_AUTHENTICATION, CustomScriptType.CONSENT_GATHERING, CustomScriptType.UPDATE_USER,
 				CustomScriptType.USER_REGISTRATION, CustomScriptType.CLIENT_REGISTRATION, CustomScriptType.DYNAMIC_SCOPE, CustomScriptType.ID_GENERATOR,
-				CustomScriptType.CACHE_REFRESH, CustomScriptType.UMA_AUTHORIZATION_POLICY, CustomScriptType.APPLICATION_SESSION, CustomScriptType.SCIM };
+				CustomScriptType.CACHE_REFRESH, CustomScriptType.UMA_RPT_POLICY, CustomScriptType.UMA_CLAIMS_GATHERING, CustomScriptType.APPLICATION_SESSION, CustomScriptType.SCIM };
+	}
+
+	public void encryptedSmtpPassword(SmtpConfiguration smtpConfiguration) {
+		if (smtpConfiguration == null) {
+			return;
+		}
+
+		String password = smtpConfiguration.getPasswordDecrypted();
+		if (StringHelper.isNotEmpty(password)) {
+			try {
+				String encryptedPassword = encryptionService.encrypt(password);
+				smtpConfiguration.setPassword(encryptedPassword);
+			} catch (EncryptionException ex) {
+				log.error("Failed to encrypt SMTP password", ex);
+			}
+		}
+	}
+
+	public void decryptSmtpPassword(SmtpConfiguration smtpConfiguration) {
+		if (smtpConfiguration == null) {
+			return;
+		}
+
+		String password = smtpConfiguration.getPassword();
+		if (StringHelper.isNotEmpty(password)) {
+			try {
+				smtpConfiguration.setPasswordDecrypted(encryptionService.decrypt(password));
+			} catch (EncryptionException ex) {
+				log.error("Failed to decrypt SMTP password", ex);
+			}
+		}
 	}
 
 }

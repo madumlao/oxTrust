@@ -8,23 +8,23 @@ package org.gluu.oxtrust.action;
 
 import java.io.Serializable;
 
+import javax.enterprise.context.ConversationScoped;
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import org.gluu.oxtrust.ldap.service.IPersonService;
 import org.gluu.oxtrust.model.GluuCustomPerson;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.exception.AuthenticationException;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
+import org.gluu.persist.exception.operation.AuthenticationException;
+import org.xdi.service.security.Secure;
 
 /**
  * Serves for password updates on UI.
  * 
  */
-@Name("userPasswordAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@Named("userPasswordAction")
+@ConversationScoped
+@Secure("#{permissionService.hasPermission('profile', 'access')}")
 @Deprecated
 public class UserPasswordAction implements Serializable {
 
@@ -37,7 +37,7 @@ public class UserPasswordAction implements Serializable {
 
 	private GluuCustomPerson person;
 
-	@In
+	@Inject
 	private IPersonService personService;
 
 	public String validatePassword() {
@@ -53,7 +53,6 @@ public class UserPasswordAction implements Serializable {
 		return result;
 	}
 
-	@Restrict("#{s:hasPermission('profile', 'access')}")
 	public String update(boolean verifyPassword) throws Exception {
 		String result;
 		boolean verifyOldPass;

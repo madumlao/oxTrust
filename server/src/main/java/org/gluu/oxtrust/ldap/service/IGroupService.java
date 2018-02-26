@@ -110,14 +110,6 @@ public interface IGroupService {
 	public abstract GluuGroupVisibility[] getVisibilityTypes() throws Exception;
 
 	/**
-	 * returns a list of all groups
-	 * 
-	 * @return list of groups
-	 */
-
-	public abstract List<GluuGroup> getAllGroupsList() throws Exception;
-
-	/**
 	 * returns GluuGroup by Dn
 	 * 
 	 * @return GluuGroup
@@ -151,4 +143,6 @@ public interface IGroupService {
 	public abstract List<GluuGroup> findGroups(GluuGroup group, int sizeLimit);
 
 	List<GluuGroup> getAllGroups(int sizeLimit);
+
+	public abstract boolean isMemberOrOwner(String[] groupDNs, String personDN) throws Exception;
 }

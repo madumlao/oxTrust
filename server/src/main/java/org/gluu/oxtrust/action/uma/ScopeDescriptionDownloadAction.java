@@ -6,59 +6,52 @@
 
 package org.gluu.oxtrust.action.uma;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-
-import javax.faces.context.ExternalContext;
-import javax.faces.context.FacesContext;
-import javax.servlet.http.HttpServletResponse;
-
 import org.codehaus.jettison.json.JSONObject;
 import org.gluu.oxtrust.ldap.service.ImageService;
 import org.gluu.oxtrust.ldap.service.ViewHandlerService;
 import org.gluu.oxtrust.ldap.service.uma.ScopeDescriptionService;
-import org.gluu.site.ldap.persistence.exception.LdapMappingException;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.log.Log;
+import org.gluu.persist.exception.mapping.BaseMappingException;
+import org.slf4j.Logger;
 import org.xdi.model.GluuImage;
-import org.xdi.oxauth.model.uma.persistence.ScopeDescription;
+import org.xdi.oxauth.model.uma.persistence.UmaScopeDescription;
+import org.xdi.service.security.Secure;
 import org.xdi.util.io.FileDownloader;
 import org.xdi.util.io.FileDownloader.ContentDisposition;
 import org.xdi.util.io.ResponseHelper;
+
+import javax.enterprise.context.RequestScoped;
+import javax.faces.context.ExternalContext;
+import javax.faces.context.FacesContext;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.servlet.http.HttpServletResponse;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 
 /**
  * Action class for download scope descriptions
  * 
  * @author Yuriy Movchan Date: 12/06/2012
  */
-@Name("scopeDescriptionDownloadAction")
-@Scope(ScopeType.EVENT)
+@RequestScoped
+@Named
+@Secure("#{permissionService.hasPermission('uma', 'access')}")
 public class ScopeDescriptionDownloadAction implements Serializable {
 
 	private static final long serialVersionUID = 6486111971437252913L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In
+	@Inject
 	protected ScopeDescriptionService scopeDescriptionService;
 
-	@In
+	@Inject
 	protected ImageService imageService;
 
-	@In(value = "#{facesContext.externalContext}")
-	private ExternalContext externalContext;
-
-	@In(value = "#{facesContext}")
-	private FacesContext facesContext;
-
-	@In
+	@Inject
 	private ViewHandlerService viewHandlerService;
 
 	private String scopeId;
@@ -67,7 +60,7 @@ public class ScopeDescriptionDownloadAction implements Serializable {
 	public void downloadFile() {
 		byte resultFile[] = null;
 
-		ScopeDescription scopeDescription = getScopeDescription();
+		UmaScopeDescription scopeDescription = getScopeDescription();
 
 		if (scopeDescription != null) {
 			JSONObject jsonObject = new JSONObject();
@@ -85,6 +78,9 @@ public class ScopeDescriptionDownloadAction implements Serializable {
 			}
 		}
 
+		FacesContext facesContext = FacesContext.getCurrentInstance();
+		ExternalContext externalContext = facesContext.getExternalContext();
+
 		if (resultFile == null) {
 			HttpServletResponse response = (HttpServletResponse) externalContext.getResponse();
 			FileDownloader.sendError(response, "Failed to generate json file");
@@ -98,7 +94,7 @@ public class ScopeDescriptionDownloadAction implements Serializable {
 	public void downloadIcon() {
 		byte resultFile[] = null;
 
-		ScopeDescription scopeDescription = getScopeDescription();
+        UmaScopeDescription scopeDescription = getScopeDescription();
 
 		if (scopeDescription != null) {
 			GluuImage gluuImage = imageService.getGluuImageFromXML(scopeDescription.getFaviconImageAsXml());
@@ -109,6 +105,9 @@ public class ScopeDescriptionDownloadAction implements Serializable {
 			}
 		}
 
+		FacesContext facesContext = FacesContext.getCurrentInstance();
+		ExternalContext externalContext = facesContext.getExternalContext();
+
 		if (resultFile == null) {
 			HttpServletResponse response = (HttpServletResponse) externalContext.getResponse();
 			FileDownloader.sendError(response, "Failed to prepare icon");
@@ -118,7 +117,7 @@ public class ScopeDescriptionDownloadAction implements Serializable {
 		}
 	}
 
-	private ScopeDescription getScopeDescription() {
+	private UmaScopeDescription getScopeDescription() {
 		try {
 			scopeDescriptionService.prepareScopeDescriptionBranch();
 		} catch (Exception ex) {
@@ -126,18 +125,18 @@ public class ScopeDescriptionDownloadAction implements Serializable {
 			return null;
 		}
 
-		log.debug("Loading UMA scope description '{0}'", this.scopeId);
-		ScopeDescription scopeDescription;
+		log.debug("Loading UMA scope description '{}'", this.scopeId);
+        UmaScopeDescription scopeDescription;
 		try {
-			List<ScopeDescription> scopeDescriptions = scopeDescriptionService.findScopeDescriptionsById(this.scopeId);
+			List<UmaScopeDescription> scopeDescriptions = scopeDescriptionService.findScopeDescriptionsById(this.scopeId);
 			if (scopeDescriptions.size() != 1) {
-				log.error("Failed to find scope description '{0}'. Found: '{1}'", this.scopeId, scopeDescriptions.size());
+				log.error("Failed to find scope description '{}'. Found: '{}'", this.scopeId, scopeDescriptions.size());
 				return null;
 			}
 
 			scopeDescription = scopeDescriptions.get(0);
-		} catch (LdapMappingException ex) {
-			log.error("Failed to find scope description '{0}'", ex, this.scopeId);
+		} catch (BaseMappingException ex) {
+			log.error("Failed to find scope description '{}'", this.scopeId, ex);
 			return null;
 		}
 

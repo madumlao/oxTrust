@@ -1,24 +1,24 @@
 <!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <ui:composition xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:s="http://jboss.org/schema/seam/taglib"
-    xmlns:ui="http://java.sun.com/jsf/facelets"
-    xmlns:f="http://java.sun.com/jsf/core"
-    xmlns:h="http://java.sun.com/jsf/html"
+    xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+    xmlns:f="http://xmlns.jcp.org/jsf/core"
+    xmlns:h="http://xmlns.jcp.org/jsf/html"
     xmlns:a4j="http://richfaces.org/a4j"
     xmlns:rich="http://richfaces.org/rich"
-    xmlns:richext="http://java.sun.com/jsf/composite/richext"
+    xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
+    xmlns:ox="http://xmlns.jcp.org/jsf/composite/ox"
     xmlns:gluufn="http://www.gluu.org/jsf/functions">
 
 <section class="content-header">
 		<h1 style="color: #333;">
-			Users<small><i class="fa fa-caret-right" style="color: #333 !important;"></i> Manage Groups</small>
-			<small><i class="fa fa-caret-right" style="color: #333 !important;"></i> Add Group</small>
+            #{msg['group.users']}<small><i class="fa fa-caret-right" style="color: #333 !important;"></i> #{msg['group.manageGroups']}</small>
+			<small><i class="fa fa-caret-right" style="color: #333 !important;"></i> #{msg['group.addGroup']}</small>
 		</h1>
 		<ol class="breadcrumb">
 			<li><a href="#{request.contextPath}"><i class="fa fa-home"></i></a></li>
 			<li class="organization/configuration"><a
-				href="#{request.contextPath}/client/inventory"> Clients</a></li>
+				href="#{request.contextPath}/client/inventory"> #{msg['group.clients']}</a></li>
 		</ol>
 		</section>
 		<section class="content">
@@ -31,32 +31,27 @@
 
         <h:panelGrid columns="1" width="100%" border="0" cellpadding="0" cellspacing="0">
             <ui:param name="_organization" value="#{gluufn:getDisplayNameEntry(_group.organization)}" />
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="organization">
-                <ui:define name="label">Organization</ui:define>
+            <ox:decorate id="organization" label="#{msg['group.organization']}">
                 <h:outputText value="#{_organization.displayName}" />
-            </s:decorate>
+            </ox:decorate>
 
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="displayName">
-                <ui:define name="label">Display Name</ui:define>
+            <ox:decorate id="displayName" label="#{msg['group.displayName']}">
                 <rich:inplaceInput value="#{_group.displayName}" defaultLabel="click to enter display name" maxlength="60"  required="true" id="displayNameId" />
-            </s:decorate>
+            </ox:decorate>
 
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="visibility">
-                <ui:define name="label">Type</ui:define>
+            <ox:decorate id="visibility" label="#{msg['group.type']}">
                 <h:selectOneMenu value="#{_group.visibility}" id="visibilityId" styleClass="form-control">
-                    <s:selectItems value="#{groupService.visibilityTypes}" noSelectionLabel="Visibility type" var="_type" label="#{_type.displayName}" />
-                    <!-- <s:convertEnum/> -->
-                    <f:converter converterId="org.gluu.oxtrust.util.jsf.EnumConverter" />
+                    <f:selectItem noSelectionOption="true"  itemLabel="Visibility type"/>
+                    <f:selectItems value="#{groupService.visibilityTypes}" var="_type" itemLabel="#{_type.displayName}" />
+                    <f:converter converterId="org.gluu.jsf2.converter.EnumConverter" />
                 </h:selectOneMenu>
-            </s:decorate>
+            </ox:decorate>
 
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="description">
-                <ui:define name="label">Description</ui:define>
+            <ox:decorate id="description" label="#{msg['group.description']}">
                 <h:inputTextarea value="#{_group.description}" rows="3" size="40" maxlength="4000" id="descriptionId" styleClass="form-control" />
-            </s:decorate>
+            </ox:decorate>
 
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="members">
-                <ui:define name="label">Members</ui:define>
+            <ox:decorate id="members" label="#{msg['group.users']}">
                 <h:panelGroup id="selectedMembersId">
                     <h:panelGrid columns="1" width="100%" border="0" cellpadding="0" cellspacing="0">
                         <a4j:repeat value="#{_groupAction.members}" rowKeyVar="_memberIdx" var="_member">
@@ -80,7 +75,7 @@
                         <a4j:commandButton style="margin-top:10px;" styleClass="btn btn-primary" value="Add member" action="#{_groupAction.selectAddedMembers}" oncomplete="#{rich:component('member:selectMemberModalPanel')}.show();" execute="@this" />
                     </h:panelGrid>
                 </h:panelGroup>
-            </s:decorate>
+            </ox:decorate>
         </h:panelGrid>
 
                    

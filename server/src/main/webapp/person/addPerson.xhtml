@@ -1,30 +1,35 @@
-<!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<ui:composition xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:s="http://jboss.org/schema/seam/taglib"
-    xmlns:ui="http://java.sun.com/jsf/facelets"
-    xmlns:f="http://java.sun.com/jsf/core"
-    xmlns:h="http://java.sun.com/jsf/html"
-    xmlns:a4j="http://richfaces.org/a4j"
-    xmlns:rich="http://richfaces.org/rich"
-    template="/WEB-INF/incl/layout/newtemplate.xhtml">
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml" xmlns:f="http://xmlns.jcp.org/jsf/core"
+                xmlns:h="http://xmlns.jcp.org/jsf/html"
+                xmlns:ui="http://xmlns.jcp.org/jsf/facelets" template="/WEB-INF/incl/layout/newtemplate.xhtml">
+    <f:metadata>
+        <f:viewParam name="inum" value="#{updatePersonAction.inum}" />
+        <f:viewAction action="#{conversationService.initConversation}" />
+        <f:viewAction action="#{updatePersonAction.add}"
+                      if="#{ updatePersonAction.person == null}"
+                      onPostback="false"/>
+    </f:metadata>
 
     <ui:define name="body">
-        <s:div id="formArea">
+        <h:panelGroup id="formArea" layout="block">
             <ui:decorate template="/WEB-INF/incl/person/personForm.xhtml">
-                <ui:param name="_person" value="#{updatePersonAction.person}" />
-                <ui:param name="_customAttributeAction" value="#{customAttributeAction}" />
-                <ui:param name="_new" value="true" />
+                <ui:param name="_person" value="#{updatePersonAction.person}"/>
+                <ui:param name="_customAttributeAction" value="#{customAttributeAction}"/>
+                <ui:param name="_new" value="true"/>
 
                 <ui:define name="controlButtons">
-                <div class = "box-footer">
-                    <s:div id="updateButtons" style="margin-bottom:6px;">
-                        <h:commandButton value="Add" action="#{updatePersonAction.save}" rendered="#{organizationService.instance().allowPersonModification}" styleClass="btn btn-primary" />
-                        <h:commandButton value="Cancel" action="#{updatePersonAction.cancel}" immediate="true" styleClass="btn btn-primary" style = "margin-left:3px;"/>
-                    </s:div>
+                    <div class="box-footer">
+                        <h:panelGroup id="updateButtons" layout="block" style="margin-bottom:6px;">
+                            <h:commandButton action="#{updatePersonAction.save}"
+                                             rendered="#{organizationService.allowPersonModification}"
+                                             styleClass="btn btn-primary" value="#{msg['person.add']}"/>
+                            <h:commandButton action="#{updatePersonAction.cancel}" immediate="true"
+                                             style="margin-left:3px;" styleClass="btn btn-primary"
+                                             value="#{msg['person.cancel']}"/>
+                        </h:panelGroup>
                     </div>
                 </ui:define>
             </ui:decorate>
-        </s:div>
+        </h:panelGroup>
     </ui:define>
 </ui:composition>

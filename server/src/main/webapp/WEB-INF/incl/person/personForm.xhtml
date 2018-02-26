@@ -1,14 +1,16 @@
 <!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
         "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <ui:composition xmlns="http://www.w3.org/1999/xhtml"
-                xmlns:s="http://jboss.org/schema/seam/taglib"
-                xmlns:ui="http://java.sun.com/jsf/facelets"
-                xmlns:f="http://java.sun.com/jsf/core"
-                xmlns:h="http://java.sun.com/jsf/html"
+                xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+                xmlns:f="http://xmlns.jcp.org/jsf/core"
+                xmlns:h="http://xmlns.jcp.org/jsf/html"
                 xmlns:a4j="http://richfaces.org/a4j"
                 xmlns:rich="http://richfaces.org/rich"
-                xmlns:richext="http://java.sun.com/jsf/composite/richext"
-                xmlns:c="http://java.sun.com/jsp/jstl/core">
+                xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
+                xmlns:gluufn="http://www.gluu.org/jsf/functions"
+                xmlns:p="http://xmlns.jcp.org/jsf/passthrough"                
+    			xmlns:fn="http://xmlns.jcp.org/jsp/jstl/functions"
+                xmlns:ox="http://xmlns.jcp.org/jsf/composite/ox">
 
     <h:outputStylesheet>
         .attributeColumn {
@@ -49,17 +51,70 @@
 		    overflow: hidden;
 			text-overflow: ellipsis;
 		}
+		
+		span:focus {
+		    background:yellow;
+		}
+		
+				.form-group {
+		    margin-bottom: 15px;
+		    display: inline-block;
+		    width: 100%;
+		    position: relative;
+		    margin-left: 30px;
+		}
+
+		.form-group .right {
+		    float: right;
+		    width: 20%;
+		}
+		
+		.form-group .left {
+		    width: 30%;
+		    float: left;
+		    margin-right: 12px;
+		}
+		
+		.form-group .middle {
+		    width: 30%;
+		    float: left;
+		    margin-right: 12px;
+		}
+		
+		
+		.order-table{
+	border-collapse:collapse;
+	width:90%;
+}
+
+.order-table-header{
+	text-align:center;
+	background:none repeat scroll 0 0 #E5E5E5;
+	border-bottom:1px solid #BBBBBB;
+	padding:16px;
+}
+
+.order-table-odd-row{
+	text-align:center;
+	background:none repeat scroll 0 0 #FFFFFFF;
+	border-top:1px solid #BBBBBB;
+}
+
+.order-table-even-row{
+	text-align:center;
+	background:none repeat scroll 0 0 #F9F9F9;
+	border-top:1px solid #BBBBBB;
+}
     </h:outputStylesheet>
 
     <h:outputScript>
         function changeAttributeVisibility(attrId, show) {
-            var attr = $('a[id*=' + attrId + ']');
-            var currentState = attr.is(":visible");
+        	var attr = document.getElementById(attrId);
 
-            if (/* !currentState and */ show) {
-                attr.show();
+            if (show) {
+	        	attr.style['display'] = '';
             } else {
-                attr.hide();
+	        	attr.style['display'] = 'none';
             }
         }
         
@@ -77,15 +132,42 @@
     		$element[0].childNodes[0].innerHTML = newValue;
 		}
 		
+		function addIndex(){ 
+			console.log("test index");
+			$("input.rf-ii-fld").each(function(index){ 
+				$(this).parent().parent().attr("tabIndex", index);
+			});
+			
+			$("span[tabindex='0']").focus();
+			
+			$("span:focus").keyup(function(e) {
+				var keyCode = e.keyCode || e.which; 
+				if(keyCode === 9){ 
+					var currentTabIndex = $(e.currentTarget).attr("tabindex");
+					if(undefined !== currentTabIndex){
+						var currentTabIndex = parseInt(currentTabIndex) + 1;
+						$("span[tabindex='"+currentTabIndex+"']").focus();
+					}
+				}
+			});
+		}
+		
+		
+		$(document).ready(function(){
+  			addIndex();
+		});
+		
     </h:outputScript>
+    	<ui:include
+		src="/WEB-INF/incl/person/u2fPage.xhtml" />
     <section class="content-header">
         <h1 style="color: #333;">
-            Users
-            <small><i class="fa fa-caret-right" style="color: #333 !important;"></i>Update User</small>
+            #{msg['person.users']}
+            <small><i class="fa fa-caret-right" style="color: #333 !important;"></i>  #{(updatePersonAction.update) ? msg['person.updateUser'] : msg['person.addUser'] }</small>
         </h1>
         <ol class="breadcrumb">
             <li><a href="#{request.contextPath}/home"><i class="fa fa-home"></i></a></li>
-            <li class="organization/configuration">Add/Update User</li>
+            <li class="organization/configuration">#{msg['person.addUpdateUser']}</li>
         </ol>
     </section>
     <section class="content">
@@ -96,35 +178,28 @@
                     </div>
                     <div style="display: inline-block; width: 100% !important;">
                         <h:form>
-                            <input type='hidden' name='cid'
-                                   value='#{conversation.id}'/> <!-- Workaround which required by manual tab panel. TODO: Remove after upgrade to SEAM 2.3.1 -->
-
                             <h:panelGrid columns="3" width="100%" columnClasses="attributeColumn, , formColumn"
                                          border="0" cellpadding="0" cellspacing="0">
 
                                 <h:panelGroup id="tabPanelGroupId">
-
                                     <rich:tabPanel switchType="client" id="attributeTabPanelId">
-                                        <c:forEach items="#{_customAttributeAction.attributeByOrigin.entrySet()}"
-                                                   var="origin">
+                                        <a4j:repeat var="origin" value="#{gluufn:toList(_customAttributeAction.attributeByOrigin)}">
                                             <rich:tab header="#{_customAttributeAction.originDisplayNames[origin.key]}">
-                                                <h:panelGrid columns="1" border="0" cellpadding="0" cellspacing="0">
-                                                    <h4 style="font-size: 18px;text-decoration: underline;">Add attributes to person entry</h4>
-                                                    <c:forEach items="#{origin.value}" var="attr">
+	                                            <h4 style="font-size: 18px;text-decoration: underline;">#{msg['person.addAttributesToPerson']}</h4>
+	                                            <a4j:repeat var="attr" value="#{origin.value}">
+	                                            	<div>
                                                         <ui:param name="_aid"
                                                                   value="#{_customAttributeAction.attributeIds[attr]}"/>
-                                                        <a4j:commandLink id="#{_aid}" value="#{attr.displayName}"
-                                                                         action="#{_customAttributeAction.addCustomAttribute(attr.inum)}"
-                                                                         render="selectedCustomAttributesId"
-                                                                         oncomplete="changeAttributeVisibility('#{_aid}', false);"
-                                                                         style="#{_customAttributeAction.containsCustomAttribute(attr) ? 'display: none;' : ''}"
-                                                                         eventsQueue="personQueue">
-                                                            <f:param name="sv" value="1"/>
-                                                        </a4j:commandLink>
-                                                    </c:forEach>
-                                                </h:panelGrid>
+		                                                 <a4j:commandLink p:aid="#{_aid}" value="#{attr.displayName}" action="#{_customAttributeAction.addCustomAttribute(attr.inum)}"
+		                                                                  render="selectedCustomAttributesId"
+		                                                                  oncomplete="changeAttributeVisibility('${component.clientId}', false);"
+		                                                                  style="#{_customAttributeAction.containsCustomAttribute(attr) ? 'display: none;' : ''}" execute="@this">
+		                                                     <f:event listener="#{_customAttributeAction.renderAttribute}" type="preRenderComponent" />
+		                                                 </a4j:commandLink>
+	                                                </div>
+	                                            </a4j:repeat>
                                             </rich:tab>
-                                        </c:forEach>
+                                        </a4j:repeat>
                                     </rich:tabPanel>
                                 </h:panelGroup>
 
@@ -132,71 +207,102 @@
 
                                 <h:panelGrid columns="1" width="100%" border="0" cellpadding="0" cellspacing="0">
                                     <h:panelGroup id="selectedCustomAttributesId">
-
+										<script type="text/javascript">         
+									        addIndex();
+									    </script>
                                         <a4j:repeat value="#{_customAttributeAction.customAttributes}" var="_custAttr"
                                                     rowKeyVar="_custAttrIdx">
                                             <h:panelGroup rendered="#{_custAttr.metadata != null}">
                                                 <ui:param name="_mandatory" value="#{_custAttr.mandatory}"/>
-                                                <ui:param name="_mustEnter" value="#{_mandatory and _new}"/>
-                                                <a4j:repeat value="#{_custAttr.values}" var="_value"
-                                                            rowKeyVar="_valueIdx">
+                                                <ui:param name="_mustEnter" value="#{_mandatory}"/>
+                                                <a4j:repeat value="#{_custAttr.values}" var="_value" rowKeyVar="_valueIdx">
+                                                    <f:event type="postValidate" listener="#{_customAttributeAction.validateAttributeValues}" />
                                                     <ui:param name="_aid"
                                                               value="#{_customAttributeAction.attributeIds[_custAttr.metadata]}"/>
-                                                    <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+                                                    <ox:decorate label="#{_custAttr.metadata.displayName} #{_valueIdx == 0 ? '' : _valueIdx}"
                                                                 rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName ne 'Password')}">
-                                                        <ui:define
-                                                                name="label">#{_custAttr.metadata.displayName}</ui:define>
 
-                                                        <div class="col-xs-10">
+														<div class="col-xs-10">
                                                             <rich:inplaceInput
+                                                                    attribute="#{_custAttr.metadata}"
                                                                     value="#{_custAttr.values[_valueIdx]}"
-                                                                    defaultLabel="Click to enter #{_custAttr.metadata.displayName}"
-                                                                    id="custId"
-                                                                    validator="#{_custAttr.metadata.validateAttribute}"
-                                                                    required="#{_mustEnter and empty param['sv']}"
-                                                                    requiredMessage="Please enter #{_custAttr.metadata.displayName}. "
-                                                                    rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName ne 'User Status') and (_custAttr.metadata.displayName ne 'Password')}" >
-                                                                <rich:validator event="blur"/>
-                                                               	
-                                                            </rich:inplaceInput>                                                      
-
+                                                                    defaultLabel="#{msg['person.clickToEnter']} #{_custAttr.metadata.displayName} #{_valueIdx == 0 ? '' : _valueIdx}"
+                                                                    id="custId_text_#{_custAttrIdx}"
+                                                                    required="#{_mustEnter}"
+                                                                    requiredMessage="#{msg['person.pleaseEnter']} #{_custAttr.metadata.displayName} #{_valueIdx == 0 ? '' : _valueIdx}. "
+                                                                    rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.dataType.value ne 'boolean') and (_custAttr.metadata.displayName ne 'Password') and (_custAttr.metadata.dataType.value ne 'certificate')}" >
+																<rich:validator event="blur"/>
+																<f:validator validatorId="attributeValidator" />                                                              
+                                                            </rich:inplaceInput>
                                                             <h:selectOneMenu styleClass="form-control"
                                                                              value="#{updatePersonAction.gluuStatus}"
-                                                                             required="true"
+                                                                             required="#{_mustEnter}"
                                                                              id="statusId"
-                                                                             rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName eq 'User Status')}">
-                                                                <s:selectItems
+                                                                             rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.dataType.value eq 'boolean') and (_custAttr.metadata.displayName eq 'User Status') }">
+                                                                <f:selectItems
                                                                         value="#{updatePersonAction.activeInactiveStatuses}"
-                                                                        var="_type" label="#{_type.displayName}"/>
-                                                                <!-- <s:convertEnum/> -->
+                                                                        var="_type" itemLabel="#{_type.displayName}"/>
                                                                 <f:converter
-                                                                        converterId="org.gluu.oxtrust.util.jsf.EnumConverter"/>
+                                                                        converterId="org.gluu.jsf2.converter.EnumConverter"/>
                                                             </h:selectOneMenu>
+                                                            <h:selectOneMenu styleClass="form-control"
+                                                                             value="#{_custAttr.booleanValues[_valueIdx]}"
+                                                                             required="#{_mustEnter}"
+                                                                             id="custId_boolean#{_custAttrIdx}"
+                                                                             rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.dataType.value eq 'boolean') and (_custAttr.metadata.displayName ne 'User Status') }">
+                                                                <f:selectItems
+                                                                        value="#{organizationService.javaBooleanSelectionTypes}"
+                                                                        var="_type" itemLabel="#{_type.displayName}"/>
+                                                                <f:converter
+                                                                        converterId="org.gluu.jsf2.converter.EnumConverter"/>
+                                                            </h:selectOneMenu>
+                                                            
+                                                            <h:inputTextarea cols="40" rows="3"
+                                                            		styleClass="form-control"
+                                                                    value="#{_custAttr.values[_valueIdx]}"
+                                                                    required="#{_mustEnter}"
+                                                                    requiredMessage="#{msg['person.pleaseEnter']} #{_custAttr.metadata.displayName} #{_valueIdx == 0 ? '' : _valueIdx}. "
+                                                                    rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.dataType.value eq 'certificate')}" >
+																<rich:validator event="blur"/>
+																<f:validator validatorId="attributeValidator" />                                                              
+                                                            </h:inputTextarea>
                                                         </div>
+                                                        
                                                         <h:outputText value="&#160;"/>                                                        
                                                         
-                                                        <div class="col-xs-2">
+                                                        <!-- <div class="col-xs-2"> -->
                                                             <a4j:commandLink
                                                                     action="#{_customAttributeAction.removeCustomAttribute(_custAttr.metadata.inum)}"
                                                                     render="selectedCustomAttributesId"
                                                                     styleClass="glyphicon glyphicon-remove"
-                                                                    style="margin-top:-18px;margin-left:-44px;"
                                                                     onbegin="changeAttributeVisibility('#{_aid}', true);"
-                                                                    rendered="#{_custAttr.adminCanEdit and not _mandatory}">
-                                                                <!--   <h:graphicImage value="/img/remove.gif" />-->
-                                                                <f:param name="sv" value="1"/>
-                                                            </a4j:commandLink></div>
-                                                    </s:decorate>
+                                                                    rendered="#{_custAttr.adminCanEdit and not _mandatory and not _custAttr.metadata.oxMultivaluedAttribute.value}" execute="@this">
+                                                            </a4j:commandLink>
+                                                            <a4j:commandLink
+                                                                    action="#{_customAttributeAction.removeCustomAttribute(_custAttr.metadata.inum)}"
+                                                                    render="selectedCustomAttributesId"
+                                                                    styleClass="glyphicon glyphicon-remove"
+                                                                    onbegin="changeAttributeVisibility('#{_aid}', true);"
+                                                                    rendered="#{_custAttr.adminCanEdit and not _mandatory and _custAttr.metadata.oxMultivaluedAttribute.value and fn:length(_custAttr.values) eq 1 }" execute="@this">
+                                                            </a4j:commandLink>
+                                                            <a4j:commandLink
+                                                                    action="#{_customAttributeAction.removeMultiValuesInAttributes(_custAttr.metadata.inum,_mandatory,_custAttr.values[_valueIdx])}"
+                                                                    render="selectedCustomAttributesId"
+                                                                    styleClass="glyphicon glyphicon-remove"
+                                                                    rendered="#{_custAttr.adminCanEdit and not _mandatory and _custAttr.metadata.oxMultivaluedAttribute.value and fn:length(_custAttr.values) gt 1 }" execute="@this">
+                                                            </a4j:commandLink>
+                                                            <a4j:commandLink
+                                                            		action="#{_customAttributeAction.addMultiValuesInAttributes(_custAttr.metadata.inum,_mandatory)}"
+                                                                    render="selectedCustomAttributesId"
+                                                                    styleClass="glyphicon glyphicon-plus"
+                                                                    rendered="#{_custAttr.adminCanEdit and _custAttr.metadata.oxMultivaluedAttribute.value and _valueIdx == 0}" execute="@this">
+                                                            </a4j:commandLink>
+                                                            
+                                                            <!-- </div> -->
+                                                    </ox:decorate>
 
-                                                    <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-                                                                rendered="#{not (_custAttr.adminCanEdit or _mustEnter)}">
-                                                        <ui:define name="label">
-                                                            <h:panelGroup>
-                                                                <h:outputText
-                                                                        value="#{_custAttr.metadata.displayName}"/>
-                                                                <!-- <h:outputText value="Undefined attribute" rendered="#{_custAttr.metadata == null}"/> -->
-                                                            </h:panelGroup>
-                                                        </ui:define>
+                                                    <ox:decorate
+                                                                rendered="#{not (_custAttr.adminCanEdit or _mustEnter)}" label="#{_custAttr.metadata.displayName}">
                                                         <h:outputText style="margin-left:19px;"
                                                                       value="#{_custAttr.values[_valueIdx]}"
                                                                       rendered="#{not (_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName ne 'memberOf')}"/>
@@ -208,50 +314,96 @@
                                                                 action="#{_customAttributeAction.removeCustomAttribute(_custAttr.metadata.inum)}"
                                                                 render="selectedCustomAttributesId"
                                                                 onbegin="changeAttributeVisibility('#{_aid}', true);"
-                                                                rendered="#{_custAttr.adminCanEdit and not _mandatory}">
+                                                                rendered="#{_custAttr.adminCanEdit and not _mandatory}" execute="@this">
                                                             <h:graphicImage value="/img/remove.gif"/>
-                                                            <f:param name="sv" value="1"/>
                                                         </a4j:commandLink>
-                                                        </s:decorate>
+                                                 	</ox:decorate>
                                                         
                                                         
-                                                        <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"  rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName eq 'Password')}">
-                                                        <ui:define
-                                                                name="label">Password</ui:define>
+                                                 	<ox:decorate label="#{msg['person.password']}" rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName eq 'Password')}">
 														<div class="col-xs-10">                                                                                           
                                                             
                                                             <rich:inplaceInput
                                                                     id="custpasswordId"
                                                                     validator="#{updatePersonAction.validateConfirmPassword}"
-                                                                    required="#{_mustEnter and empty param['sv']}"
-                                                                    requiredMessage="Please enter #{_custAttr.metadata.displayName}. "
+                                                                    required="#{_mustEnter}"
+                                                                    requiredMessage="#{msg['person.pleaseEnter']} #{_custAttr.metadata.displayName}. "
                                                                     rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName eq 'Password')}" 
                                                                     onfocus="changeTextType(this);">
                                                                 <rich:validator event="blur" oncomplete="updateSpan(this, #{rich:component('custpasswordId')}.getValue())"/>
                                                             </rich:inplaceInput>                                                             
                                                         </div>
-                                                     </s:decorate>               
+                                                     </ox:decorate>               
                                                         
-                                                        <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"  rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName eq 'Password')}">
-                                                        <ui:define
-                                                                name="label">Confirm Password</ui:define>
+                                                     <ox:decorate label="#{msg['person.confirmPassword']}" rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName eq 'Password')}">
 														<div class="col-xs-10">                                                                                           
                                                             <rich:inplaceInput       
-                                                                    defaultLabel="Click to enter Confirm Pasword"
+                                                                    defaultLabel="#{msg['person.confirmPassword']}"
                                                                     maxlength="50" id="custconfirmpasswordId"
                                                                     validator="#{updatePersonAction.validateConfirmPassword}"
-                                                                    required="#{_mustEnter and empty param['sv']}"
+                                                                    required="#{_mustEnter}"
                                                                     requiredMessage="Please enter Confirm Password" 
                                                                     rendered="#{(_custAttr.adminCanEdit or _mustEnter) and (_custAttr.metadata.displayName eq 'Password')}"
                                                                     onfocus="changeTextType(this);">
                                                                 <rich:validator event="blur" oncomplete="updateSpan(this, #{rich:component('custconfirmpasswordId')}.getValue())"/>
                                                             </rich:inplaceInput>                                                             
                                                         </div>
-                                                     </s:decorate>                                                        
+                                                     </ox:decorate>                                                        
                                                   
                                                 </a4j:repeat>
+                                            	
                                             </h:panelGroup>
                                         </a4j:repeat>
+                                        
+                                    <ox:decorate label="#{msg['person.authenticationmethods']}" rendered="#{updatePersonAction.deviceDataMap.size() gt 0}" />    
+									<h:dataTable value="#{updatePersonAction.deviceDataMap}" var="_value"
+						    			styleClass="order-table"
+						    			headerClass="order-table-header"
+						    			rowClasses="order-table-odd-row,order-table-even-row" rendered="#{updatePersonAction.deviceDataMap.size() gt 0}">
+										
+										<h:column>
+						    				<!-- column header -->
+						    				<f:facet name="header">Id</f:facet>
+						    				<!-- row record -->
+						    				
+						    				<!-- <h:outputText  value="#{_value.id}"  rendered="#{not _value.id.contains(':')}" /> -->
+											<h:panelGroup id="U2fPanelid">
+												<a4j:commandLink id="u2fConfig"   action="#{updatePersonAction.fetchFidoRecord(_value.id)}"
+													value="#{_value.id}"
+													rendered="#{not _value.id.contains(':')}"
+													render=":U2fPanel"
+													oncomplete="#{rich:component('U2fPanel')}.show();"
+													execute="@this" />
+											</h:panelGroup>
+										</h:column>
+						    			
+						    			<h:column>
+						    				<!-- column header -->
+						    				<f:facet name="header">Nickname</f:facet>
+						    				<!-- row record -->
+						    				#{_value.nickName}
+						    			</h:column>
+						
+						    			<h:column>
+						    				<f:facet name="header">Modality</f:facet>
+						    				#{_value.modality}
+						    			</h:column>
+						
+						    			<h:column>
+						    				<f:facet name="header">Date Added</f:facet>
+						    				#{_value.creationDate}
+						    			</h:column>
+						
+						    			<h:column>
+						    				<f:facet name="header">Remove</f:facet>
+						    				<a4j:commandLink
+														action="#{updatePersonAction.removeDevice(_value)}"
+														render="selectedCustomAttributesId"
+														styleClass="glyphicon glyphicon-remove">
+											</a4j:commandLink>
+						    			</h:column>
+						
+						    		</h:dataTable>
                                     </h:panelGroup>
                                 </h:panelGrid>
                             </h:panelGrid>

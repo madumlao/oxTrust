@@ -14,27 +14,27 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.AttributeService;
 import org.gluu.oxtrust.ldap.service.ScopeService;
 import org.gluu.oxtrust.model.OxAuthScope;
 import org.gluu.oxtrust.service.custom.CustomScriptService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.exception.LdapMappingException;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.faces.FacesMessages;
-import org.jboss.seam.international.StatusMessage.Severity;
-import org.jboss.seam.log.Log;
+import org.gluu.persist.exception.mapping.BaseMappingException;
+import org.slf4j.Logger;
 import org.xdi.model.DisplayNameEntry;
 import org.xdi.model.GluuAttribute;
 import org.xdi.model.SelectableEntity;
 import org.xdi.model.custom.script.CustomScriptType;
 import org.xdi.model.custom.script.model.CustomScript;
 import org.xdi.service.LookupService;
+import org.xdi.service.security.Secure;
 import org.xdi.util.StringHelper;
 import org.xdi.util.Util;
 
@@ -43,19 +43,23 @@ import org.xdi.util.Util;
  * 
  * @author Reda Zerrad Date: 06.18.2012
  */
-@Scope(ScopeType.CONVERSATION)
-@Name("updateScopeAction")
-@Restrict("#{identity.loggedIn}")
+@ConversationScoped
+@Named("updateScopeAction")
+@Secure("#{permissionService.hasPermission('scope', 'access')}")
 public class UpdateScopeAction implements Serializable {
 
-	/**
-     *
-     */
 	private static final long serialVersionUID = 8198574569820157032L;
+
 	private static final String[] CUSTOM_SCRIPT_RETURN_ATTRIBUTES = { "inum", "displayName", "description", "gluuStatus" };
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
+
+	@Inject
+	private FacesMessages facesMessages;
+
+	@Inject
+	private ConversationService conversationService;
 
 	private String inum;
 
@@ -71,26 +75,22 @@ public class UpdateScopeAction implements Serializable {
 
 	private List<GluuAttribute> availableClaims;
 
-	@In
+	@Inject
 	private ScopeService scopeService;
 
-	@In
+	@Inject
 	private LookupService lookupService;
 
-	@In
-	private transient AttributeService attributeService;
+	@Inject
+	private AttributeService attributeService;
 
-	@In
+	@Inject
 	private CustomScriptService customScriptService;
-
-	@In
-	private FacesMessages facesMessages;
 
 	private List<CustomScript> dynamicScripts;
 	private List<SelectableEntity<CustomScript>> availableDynamicScripts;
 
 	
-	@Restrict("#{s:hasPermission('scope', 'access')}")
 	public String add() throws Exception {
 		if (this.scope != null) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -106,8 +106,11 @@ public class UpdateScopeAction implements Serializable {
 				this.claims = new ArrayList<DisplayNameEntry>();
 			}
 
-		} catch (LdapMappingException ex) {
+		} catch (BaseMappingException ex) {
 			log.error("Failed to load scopes", ex);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new scope");
+
+			conversationService.endConversation();
 
 			return OxTrustConstants.RESULT_FAILURE;
 		}
@@ -118,25 +121,28 @@ public class UpdateScopeAction implements Serializable {
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('scope', 'access')}")
 	public String update() throws Exception {
 		if (this.scope != null) {
 			return OxTrustConstants.RESULT_SUCCESS;
 		}
 
 		this.update = true;
-		log.info("this.update : " + this.update);
+		log.debug("this.update : " + this.update);
 		try {
 
-			log.info("inum : " + this.inum);
+			log.debug("inum : " + this.inum);
 			this.scope = scopeService.getScopeByInum(this.inum);
-		} catch (LdapMappingException ex) {
-			log.error("Failed to find scope {0}", ex, inum);
+		} catch (BaseMappingException ex) {
+			log.error("Failed to find scope {}", inum, ex);
 
 		}
 
 		if (this.scope == null) {
-			log.info("Group is null ");
+			log.error("Failed to load scope {}", inum);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to find scope");
+
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
@@ -148,20 +154,31 @@ public class UpdateScopeAction implements Serializable {
 			}
 			this.dynamicScripts = getInitialDynamicScripts();
 
-		} catch (LdapMappingException ex) {
+		} catch (BaseMappingException ex) {
 			log.error("Failed to load claims", ex);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to load scope");
+
+			conversationService.endConversation();
 
 			return OxTrustConstants.RESULT_FAILURE;
 		}
-		log.info("returning Success");
+
+		log.debug("returning Success");
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('scope', 'access')}")
-	public void cancel() {
+	public String cancel() {
+		if (update) {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "Scope '#{updateScopeAction.scope.displayName}' not updated");
+		} else {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "New scope not added");
+		}
+
+		conversationService.endConversation();
+
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('scope', 'access')}")
 	public String save() throws Exception {
 		// List<DisplayNameEntry> oldClaims = null;
 		// try {
@@ -170,24 +187,25 @@ public class UpdateScopeAction implements Serializable {
 		// } catch (LdapMappingException ex) {
 		// log.error("error getting oldClaims",ex);
 		//
-		// facesMessages.add(Severity.ERROR, "Failed to update scope");
+		// facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to update scope");
 		// return Configuration.RESULT_FAILURE;
 		// }
 
+		this.scope.setDisplayName(this.scope.getDisplayName().trim());
 		updateDynamicScripts();
 		updateClaims();
 		if (update) {
 			// Update scope
 			try {
 				scopeService.updateScope(this.scope);
-			} catch (LdapMappingException ex) {
+			} catch (BaseMappingException ex) {
+				log.error("Failed to update scope {}", this.inum, ex);
 
-				log.info("error updating scope ", ex);
-				log.error("Failed to update scope {0}", ex, this.inum);
-
-				facesMessages.add(Severity.ERROR, "Failed to update scope");
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to update scope '#{updateScopeAction.scope.displayName}'");
 				return OxTrustConstants.RESULT_FAILURE;
 			}
+
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "Scope '#{updateScopeAction.scope.displayName}' updated successfully");
 		} else {
 			this.inum = scopeService.generateInumForNewScope();
 			String dn = scopeService.getDnForScope(this.inum);
@@ -198,16 +216,19 @@ public class UpdateScopeAction implements Serializable {
 			try {
 				scopeService.addScope(this.scope);
 			} catch (Exception ex) {
-				log.info("error saving scope ");
-				log.error("Failed to add new scope {0}", ex, this.scope.getInum());
+				log.error("Failed to add new scope {}", this.scope.getInum(), ex);
 
-				facesMessages.add(Severity.ERROR, "Failed to add new scope");
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new scope");
 				return OxTrustConstants.RESULT_FAILURE;
-
 			}
+
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "New scope '#{updateScopeAction.scope.displayName}' added successfully");
+
+			conversationService.endConversation();
+
 			this.update = true;
 		}
-		log.info(" returning success updating or saving scope");
+		log.debug(" returning success updating or saving scope");
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
@@ -228,15 +249,19 @@ public class UpdateScopeAction implements Serializable {
 		this.scope.setOxAuthClaims(resultClaims);
 	}
 
-	@Restrict("#{s:hasPermission('scope', 'access')}")
 	public String delete() throws Exception {
 		if (update) {
 			// Remove scope
 			try {
 				scopeService.removeScope(this.scope);
+
+				facesMessages.add(FacesMessage.SEVERITY_INFO, "Scope '#{updateScopeAction.scope.displayName}' removed successfully");
+
+				conversationService.endConversation();
+
 				return OxTrustConstants.RESULT_SUCCESS;
-			} catch (LdapMappingException ex) {
-				log.error("Failed to remove scope {0}", ex, this.scope.getInum());
+			} catch (BaseMappingException ex) {
+				log.error("Failed to remove scope {}", this.scope.getInum(), ex);
 
 			}
 		}
@@ -263,7 +288,6 @@ public class UpdateScopeAction implements Serializable {
 				break;
 			}
 		}
-
 	}
 
 	public String getSearchAvailableClaimPattern() {
@@ -411,8 +435,7 @@ public class UpdateScopeAction implements Serializable {
 	}
 
 	private void updateDynamicScripts() {
-		if ((org.xdi.oxauth.model.common.ScopeType.DYNAMIC != this.scope.getScopeType()) ||
-			(this.dynamicScripts == null) || (this.dynamicScripts.size() == 0)) {
+		if ((this.dynamicScripts == null) || (this.dynamicScripts.size() == 0)) {
 			this.scope.setDynamicScopeScripts(null);
 			return;
 		}
@@ -488,7 +511,7 @@ public class UpdateScopeAction implements Serializable {
 			
 			this.availableDynamicScripts = tmpAvailableDynamicScripts;
 			selectAddedDynamicScripts();
-		} catch (LdapMappingException ex) {
+		} catch (BaseMappingException ex) {
 			log.error("Failed to find available authorization policies", ex);
 		}
 

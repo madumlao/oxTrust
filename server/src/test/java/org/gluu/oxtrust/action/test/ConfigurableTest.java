@@ -14,15 +14,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 
+import org.apache.commons.io.IOUtils;
+import org.eu.ingwar.tools.arquillian.extension.suite.annotations.ArquillianSuiteDeployment;
+import org.gluu.oxtrust.util.Deployments;
 import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.seam.mock.SeamTest;
+import org.jboss.arquillian.testng.Arquillian;
 import org.jboss.shrinkwrap.api.Archive;
-import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.EmptyAsset;
-import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.BeforeClass;
 import org.testng.ITestContext;
 import org.testng.Reporter;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeSuite;
 import org.xdi.util.StringHelper;
 import org.xdi.util.properties.FileConfiguration;
@@ -33,32 +33,14 @@ import org.xdi.util.properties.FileConfiguration;
  * @author Yuriy Movchan
  * Date: 05/16/2016
  */
-public abstract class ConfigurableTest extends SeamTest {
+@ArquillianSuiteDeployment
+public abstract class ConfigurableTest extends Arquillian {
 
 	public static FileConfiguration testData;
 
-    @Deployment
-    public static Archive<?> createDeployment()
-    {
-       return ShrinkWrap.create(WebArchive.class, "test.war")
-    		   .addAsResource(EmptyAsset.INSTANCE, "seam.properties")
-                        .setWebXML("web.xml");
-    }
-
-	/**
-	 * Prepare configuration before tests execution
-	 */
-	@BeforeClass
-	public static void initTest() {
-		String propertiesFile = "./target/test-classes/testng.properties";
-		testData = new FileConfiguration(propertiesFile);
-	}
-
-    /**
-	 * Get configuration
-	 */
-	public FileConfiguration getTestData() {
-		return testData;
+	@Deployment
+	public static Archive<?> createDeployment() {
+		return Deployments.createDeployment();
 	}
 
 	@BeforeSuite
@@ -70,11 +52,15 @@ public abstract class ConfigurableTest extends SeamTest {
             propertiesFile = "target/test-classes/testng.properties";
         }
 
-        // Load test paramters
-        //propertiesFile = "/Users/JAVIER/IdeaProjects/oxAuth/Client/target/test-classes/testng.properties";
+        // Load test parameters
         FileInputStream conf = new FileInputStream(propertiesFile);
-        Properties prop = new Properties();
-        prop.load(conf);
+        Properties prop;
+        try {
+			prop = new Properties();
+			prop.load(conf);
+		} finally {
+			IOUtils.closeQuietly(conf);
+		}
 
         Map<String, String> parameters = new HashMap<String, String>();
         for (Entry<Object, Object> entry : prop.entrySet()) {
@@ -87,7 +73,7 @@ public abstract class ConfigurableTest extends SeamTest {
             parameters.put(key.toString(), value.toString());
         }
 
-        // Overrided test paramters
+        // Overrided test parameters
         context.getSuite().getXmlSuite().setParameters(parameters);
     }
 

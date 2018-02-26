@@ -9,20 +9,21 @@ package org.gluu.oxtrust.action.push;
 import java.io.Serializable;
 import java.util.List;
 
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.model.push.PushApplication;
 import org.gluu.oxtrust.service.push.PushApplicationConfigurationService;
 import org.gluu.oxtrust.service.push.PushApplicationService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.log.Log;
+import org.slf4j.Logger;
+import org.xdi.service.security.Secure;
 import org.xdi.util.Util;
 
 /**
@@ -30,15 +31,21 @@ import org.xdi.util.Util;
  * 
  * @author Yuriy Movchan Date: 10/01/2014
  */
-@Name("pushApplicationInventoryAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@Named("pushApplicationInventoryAction")
+@ConversationScoped
+@Secure("#{permissionService.hasPermission('super-gluu', 'access')}")
 public class PushApplicationInventoryAction implements Serializable {
 
 	private static final long serialVersionUID = -2233178742652918022L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
+
+	@Inject
+	private FacesMessages facesMessages;
+
+	@Inject
+	private ConversationService conversationService;
 
 	@NotNull
 	@Size(min = 0, max = 30, message = "Length of search string should be less than 30")
@@ -48,18 +55,16 @@ public class PushApplicationInventoryAction implements Serializable {
 
 	private List<PushApplication> pushApplicationList;
 
-	@In
+	@Inject
 	private PushApplicationService pushApplicationService;
 	
-	@In
-	private PushApplicationConfigurationService pushApplicationConfigurationService;
+	@Inject
+	private PushApplicationConfigurationService PushApplicationConfigurationService;
 
-	@Restrict("#{s:hasPermission('oxpush', 'access')}")
 	public String start() {
 		return search();
 	}
 
-	@Restrict("#{s:hasPermission('oxpush', 'access')}")
 	public String search() {
 		if (Util.equals(this.oldSearchPattern, this.searchPattern)) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -71,15 +76,17 @@ public class PushApplicationInventoryAction implements Serializable {
 
 			return OxTrustConstants.RESULT_SUCCESS;
 		} catch (Exception ex) {
-			log.error("Failed to find scopes", ex);
+			log.error("Failed to find Super-Gluu applications", ex);
 		}
+
+		facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to find Super-Gluu applications");
+		conversationService.endConversation();
 
 		return OxTrustConstants.RESULT_FAILURE;
 	}
 
-	@Restrict("#{s:hasPermission('oxpush', 'access')}")
 	public List<String> getPlatforms(PushApplication pushApplication) {
-		List<String> platforms = pushApplicationConfigurationService.getPlatformDescriptionList(pushApplication);
+		List<String> platforms = PushApplicationConfigurationService.getPlatformDescriptionList(pushApplication);
 		
 		return platforms;
 	}

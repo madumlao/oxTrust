@@ -7,30 +7,29 @@
 package org.gluu.oxtrust.action;
 
 import java.io.Serializable;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.AttributeService;
+import org.gluu.oxtrust.ldap.service.TrustService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.exception.LdapMappingException;
-import org.hibernate.internal.util.collections.ArrayHelper;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.faces.FacesMessages;
-import org.jboss.seam.international.StatusMessage.Severity;
-import org.jboss.seam.log.Log;
-import org.xdi.config.oxtrust.ApplicationConfiguration;
-import org.xdi.ldap.model.GluuStatus;
+import org.gluu.persist.exception.mapping.BaseMappingException;
+import org.gluu.persist.model.base.GluuStatus;
+import org.slf4j.Logger;
+import org.xdi.config.oxtrust.AppConfiguration;
 import org.xdi.model.AttributeValidation;
 import org.xdi.model.GluuAttribute;
 import org.xdi.model.GluuUserRole;
 import org.xdi.model.SchemaEntry;
 import org.xdi.service.SchemaService;
+import org.xdi.service.security.Secure;
+import org.xdi.util.ArrayHelper;
 import org.xdi.util.StringHelper;
 
 /**
@@ -38,39 +37,44 @@ import org.xdi.util.StringHelper;
  * 
  * @author Yuriy Movchan Date: 10.19.2010
  */
-@Scope(ScopeType.CONVERSATION)
-@Name("updateAttributeAction")
-@Restrict("#{identity.loggedIn}")
+@ConversationScoped
+@Named("updateAttributeAction")
+@Secure("#{permissionService.hasPermission('attribute', 'access')}")
 public class UpdateAttributeAction implements Serializable {
 
 	private static final long serialVersionUID = -2932167044333943687L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In
+	@Inject
 	private AttributeService attributeService;
 
-	@In
+	@Inject
+	private TrustService trustService;
+
+	@Inject
 	private SchemaService schemaService;
 
-	@In
+	@Inject
 	private FacesMessages facesMessages;
-	
-	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
-	private ApplicationConfiguration applicationConfiguration;
+
+	@Inject
+	private ConversationService conversationService;
+
+	@Inject
+	private AppConfiguration appConfiguration;
 
 	private String inum;
 	private GluuAttribute attribute;
 	private boolean update;
 	private boolean showAttributeDeleteConfirmation;
-	
+
 	private boolean validationToggle;
 	private boolean tooltipToggle;
 
 	private boolean canEdit;
-	
-	@Restrict("#{s:hasPermission('attribute', 'access')}")
+
 	public String add() {
 		if (this.attribute != null) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -82,7 +86,7 @@ public class UpdateAttributeAction implements Serializable {
 
 		this.attribute = new GluuAttribute();
 		attribute.setAttributeValidation(new AttributeValidation());
-		
+
 		this.attribute.setStatus(GluuStatus.ACTIVE);
 		this.attribute.setEditType(new GluuUserRole[] { GluuUserRole.ADMIN });
 
@@ -91,7 +95,6 @@ public class UpdateAttributeAction implements Serializable {
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('attribute', 'access')}")
 	public String update() {
 		if (this.attribute != null) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -102,6 +105,9 @@ public class UpdateAttributeAction implements Serializable {
 		this.showAttributeDeleteConfirmation = false;
 
 		if (!loadAttribute(this.inum)) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to find attribute");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
@@ -111,8 +117,8 @@ public class UpdateAttributeAction implements Serializable {
 	private boolean loadAttribute(String inum) {
 		try {
 			this.attribute = attributeService.getAttributeByInum(inum);
-		} catch (LdapMappingException ex) {
-			log.error("Failed to find attribute {0}", ex, inum);
+		} catch (BaseMappingException ex) {
+			log.error("Failed to find attribute {}", inum, ex);
 		}
 
 		if (this.attribute == null) {
@@ -129,8 +135,8 @@ public class UpdateAttributeAction implements Serializable {
 	private void initAttribute() {
 		if (StringHelper.isEmpty(this.attribute.getSaml1Uri())) {
 			String namespace;
-			if (attribute.isCustom() || StringHelper.isEmpty(attribute.getUrn())
-					&& attribute.getUrn().startsWith("urn:gluu:dir:attribute-def:")) {
+			if (attribute.isCustom()
+					|| StringHelper.isEmpty(attribute.getUrn()) && attribute.getUrn().startsWith("urn:gluu:dir:attribute-def:")) {
 				namespace = "gluu";
 			} else {
 				namespace = "mace";
@@ -147,8 +153,8 @@ public class UpdateAttributeAction implements Serializable {
 		} else {
 			this.validationToggle = true;
 		}
-		
-		if(attribute.getGluuTooltip() != null){
+
+		if (attribute.getGluuTooltip() != null) {
 			this.tooltipToggle = true;
 		}
 	}
@@ -157,13 +163,40 @@ public class UpdateAttributeAction implements Serializable {
 		return this.attribute.isAdminCanEdit();
 	}
 
-	@Restrict("#{s:hasPermission('attribute', 'access')}")
-	public void cancel() {
+	public String cancel() {
+		if (update) {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "Attribute '#{updateAttributeAction.attribute.displayName}' not updated");
+		} else {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "New attribute not added");
+		}
+
+		conversationService.endConversation();
+
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-
-	@Restrict("#{s:hasPermission('attribute', 'access')}")
 	public String save() {
+		String outcome = saveImpl();
+		
+		if (update) {
+			if (OxTrustConstants.RESULT_SUCCESS.equals(outcome)) {
+				facesMessages.add(FacesMessage.SEVERITY_INFO, "Attribute '#{updateAttributeAction.attribute.displayName}' updated successfully");
+			} else if (OxTrustConstants.RESULT_FAILURE.equals(outcome)) {
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new attribute");
+			}
+		} else {
+			if (OxTrustConstants.RESULT_SUCCESS.equals(outcome)) {
+				facesMessages.add(FacesMessage.SEVERITY_INFO, "New attribute '#{updateAttributeAction.attribute.displayName}' added successfully");
+				conversationService.endConversation();
+			} else if (OxTrustConstants.RESULT_FAILURE.equals(outcome)) {
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to update attribute '#{updateAttributeAction.attribute.displayName}'");
+			}
+		}
+		
+		return outcome;
+	}
+
+	public String saveImpl() {
 		if (!tooltipToggle) {
 			attribute.setGluuTooltip(null);
 		}
@@ -175,7 +208,7 @@ public class UpdateAttributeAction implements Serializable {
 		if ((attribute.getViewType() != null) && (attribute.getViewType().length == 0)) {
 			attribute.setViewType(null);
 		}
-		
+
 		String attributeName = this.attribute.getName();
 		if (this.update) {
 			try {
@@ -186,9 +219,9 @@ public class UpdateAttributeAction implements Serializable {
 				}
 
 				attributeService.updateAttribute(this.attribute);
-			} catch (LdapMappingException ex) {
-				log.error("Failed to update attribute {0}", ex, inum);
-				facesMessages.add(Severity.ERROR, "Failed to update attribute");
+			} catch (BaseMappingException ex) {
+				log.error("Failed to update attribute {}", inum, ex);
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to update attribute");
 				return OxTrustConstants.RESULT_FAILURE;
 			}
 		} else {
@@ -202,11 +235,6 @@ public class UpdateAttributeAction implements Serializable {
 			}
 		}
 
-		this.update = true;
-		if (!loadAttribute(this.attribute.getInum())) {
-			return OxTrustConstants.RESULT_FAILURE;
-		}
-
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
@@ -216,7 +244,7 @@ public class UpdateAttributeAction implements Serializable {
 			return false;
 		}
 
-		String inum = attributeService.generateInumForNewAttribute();
+		this.inum = attributeService.generateInumForNewAttribute();
 		String dn = attributeService.getDnForAttribute(inum);
 		if (attribute.getSaml1Uri() == null || attribute.getSaml1Uri().equals("")) {
 			attribute.setSaml1Uri("urn:gluu:dir:attribute-def:" + attributeName);
@@ -227,7 +255,7 @@ public class UpdateAttributeAction implements Serializable {
 
 		String attributeOrigin = determineOrigin(attributeName);
 		if (StringHelper.isEmpty(attributeOrigin)) {
-			facesMessages.add(Severity.ERROR, "Failed to determine object class by attribute name");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to determine object class by attribute name");
 			return false;
 		}
 
@@ -236,13 +264,15 @@ public class UpdateAttributeAction implements Serializable {
 		// Save attribute metadata
 		this.attribute.setDn(dn);
 		this.attribute.setInum(inum);
+		this.attribute.setDisplayName(this.attribute.getDisplayName().trim());
+		this.attribute.setName(this.attribute.getName().trim());
 
 		try {
 			attributeService.addAttribute(this.attribute);
-		} catch (LdapMappingException ex) {
-			log.error("Failed to add new attribute {0}", ex, this.attribute.getInum());
+		} catch (BaseMappingException ex) {
+			log.error("Failed to add new attribute {}", this.attribute.getInum(), ex);
 
-			facesMessages.add(Severity.ERROR, "Failed to add new attribute");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new attribute");
 			return false;
 		}
 
@@ -252,26 +282,26 @@ public class UpdateAttributeAction implements Serializable {
 	private boolean validateAttributeDefinition(String attributeName) {
 		boolean containsAttribute = schemaService.containsAttributeTypeInSchema(attributeName);
 		if (!containsAttribute) {
-			facesMessages.add(Severity.ERROR, "The attribute type '{0}' not defined in LDAP schema", attributeName);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "The attribute type '#{updateAttributeAction.attribute.name}' not defined in LDAP schema");
 			return false;
 		}
 
 		// Check if attribute defined in gluuPerson or in custom object class
 		boolean containsAttributeInGluuObjectClasses = containsAttributeInGluuObjectClasses(attributeName);
 		if (!containsAttributeInGluuObjectClasses) {
-			facesMessages.add(Severity.ERROR, "Attribute type '{0}' definition not belong to list of allowed object classes", attributeName);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Attribute type '#{updateAttributeAction.attribute.name}' definition not belong to list of allowed object classes");
 			return false;
 		}
-		
+
 		return true;
 	}
 
 	private String determineOrigin(String attributeName) {
-		String[] objectClasses = ArrayHelper.join(new String[] { "gluuPerson" }, applicationConfiguration.getPersonObjectClassTypes());
+		String[] objectClasses = ArrayHelper.arrayMerge(new String[] { "gluuPerson" }, appConfiguration.getPersonObjectClassTypes());
 
 		SchemaEntry schemaEntry = schemaService.getSchema();
-		
-		for (String objectClass : objectClasses) { 
+
+		for (String objectClass : objectClasses) {
 			Set<String> attributeNames = schemaService.getObjectClassesAttributes(schemaEntry, new String[] { objectClass });
 			String atributeNameToSearch = StringHelper.toLowerCase(attributeName);
 			boolean contains = attributeNames.contains(atributeNameToSearch);
@@ -280,12 +310,12 @@ public class UpdateAttributeAction implements Serializable {
 			}
 		}
 
-		log.error("Failed to determine object class by attribute name '{0}'", attributeName);
+		log.error("Failed to determine object class by attribute name '{}'", attributeName);
 		return null;
 	}
 
 	private boolean containsAttributeInGluuObjectClasses(String attributeName) {
-		String[] objectClasses = ArrayHelper.join(new String[] { "gluuPerson" }, applicationConfiguration.getPersonObjectClassTypes());
+		String[] objectClasses = ArrayHelper.arrayMerge(new String[] { "gluuPerson" }, appConfiguration.getPersonObjectClassTypes());
 
 		SchemaEntry schemaEntry = schemaService.getSchema();
 		Set<String> attributeNames = schemaService.getObjectClassesAttributes(schemaEntry, objectClasses);
@@ -296,37 +326,39 @@ public class UpdateAttributeAction implements Serializable {
 		return result;
 	}
 
-	@Restrict("#{s:hasPermission('attribute', 'access')}")
 	public String delete() {
 		showAttributeDeleteConfirmation = true;
 		return deleteAndAcceptUpdate();
 	}
 
-	@Restrict("#{s:hasPermission('attribute', 'access')}")
 	public void cancelDeleteAndAcceptUpdate() {
 		showAttributeDeleteConfirmation = false;
 	}
 
-	@Restrict("#{s:hasPermission('attribute', 'access')}")
 	public String deleteAndAcceptUpdate() {
 		if (update && showAttributeDeleteConfirmation && this.attribute.isCustom()) {
 			showAttributeDeleteConfirmation = false;
 
-			if (attributeService.removeAttribute(this.attribute)) {
+			if (trustService.removeAttribute(this.attribute)) {
+				facesMessages.add(FacesMessage.SEVERITY_INFO, "Attribute '#{updateAttributeAction.attribute.displayName}' removed successfully");
+				conversationService.endConversation();
+
 				return OxTrustConstants.RESULT_SUCCESS;
 			} else {
-				log.error("Failed to remove attribute {0}", this.attribute.getInum());
+				log.error("Failed to remove attribute {}", this.attribute.getInum());
 			}
 		}
 
 		showAttributeDeleteConfirmation = false;
+
+		facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to remove attribute '#{updateAttributeAction.attribute.displayName}'");
 
 		return OxTrustConstants.RESULT_FAILURE;
 	}
 
 	public boolean validateEditType() {
 		if (!(this.attribute.allowEditBy(GluuUserRole.USER) || this.attribute.allowEditBy(GluuUserRole.ADMIN))) {
-			facesMessages.add(Severity.WARN, "Please select Edit Type.");
+			facesMessages.add(FacesMessage.SEVERITY_WARN, "Please select Edit Type.");
 			return false;
 		}
 
@@ -339,7 +371,7 @@ public class UpdateAttributeAction implements Serializable {
 		tmpAttribute.setName(attributeName);
 
 		if (attributeService.containsAttribute(tmpAttribute)) {
-			facesMessages.addToControl("nameId", Severity.ERROR, "Attribute with specified name already exist");
+			facesMessages.add("nameId", FacesMessage.SEVERITY_ERROR, "Attribute with specified name already exist");
 			return false;
 		}
 
@@ -349,6 +381,7 @@ public class UpdateAttributeAction implements Serializable {
 	public String getInum() {
 		return inum;
 	}
+
 	public void setInum(String inum) {
 		this.inum = inum;
 	}
@@ -385,32 +418,35 @@ public class UpdateAttributeAction implements Serializable {
 		this.tooltipToggle = tooltipToggle;
 	}
 
-    /**
-     * @param update the update to set
-     */
-    public void setUpdate(boolean update) {
-        this.update = update;
-    }
+	/**
+	 * @param update
+	 *            the update to set
+	 */
+	public void setUpdate(boolean update) {
+		this.update = update;
+	}
 
-    /**
-     * @param showAttributeDeleteConfirmation the showAttributeDeleteConfirmation to set
-     */
-    public void setShowAttributeDeleteConfirmation(boolean showAttributeDeleteConfirmation) {
-        this.showAttributeDeleteConfirmation = showAttributeDeleteConfirmation;
-    }
+	/**
+	 * @param showAttributeDeleteConfirmation
+	 *            the showAttributeDeleteConfirmation to set
+	 */
+	public void setShowAttributeDeleteConfirmation(boolean showAttributeDeleteConfirmation) {
+		this.showAttributeDeleteConfirmation = showAttributeDeleteConfirmation;
+	}
 
-    /**
-     * @return the canEdit
-     */
-    public boolean isCanEdit() {
-        return canEdit;
-    }
+	/**
+	 * @return the canEdit
+	 */
+	public boolean isCanEdit() {
+		return canEdit;
+	}
 
-    /**
-     * @param canEdit the canEdit to set
-     */
-    public void setCanEdit(boolean canEdit) {
-        this.canEdit = canEdit;
-    }
+	/**
+	 * @param canEdit
+	 *            the canEdit to set
+	 */
+	public void setCanEdit(boolean canEdit) {
+		this.canEdit = canEdit;
+	}
 
 }

@@ -1,12 +1,11 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <ui:composition xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:ui="http://java.sun.com/jsf/facelets"
-    xmlns:h="http://java.sun.com/jsf/html"
-    xmlns:s="http://jboss.org/schema/seam/taglib"
+    xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+    xmlns:h="http://xmlns.jcp.org/jsf/html"
     xmlns:a4j="http://richfaces.org/a4j"
     xmlns:rich="http://richfaces.org/rich"
-    xmlns:ox="http://java.sun.com/jsf/composite/ox"
-    xmlns:f="http://java.sun.com/jsf/core">
+    xmlns:ox="http://xmlns.jcp.org/jsf/composite/ox"
+    xmlns:f="http://xmlns.jcp.org/jsf/core">
 
     <ox:viewFileDialog id="viewCertificate#{_formType}" label="Certificate" text="#{fileViewerAction.getString(_certificateAction.tempCertDir.concat(_certFN))}" textHeight="370" textWidth="480"/>
 
@@ -15,25 +14,25 @@
             <a4j:commandLink value="#{_certFN}" render="viewCertificate#{_formType}:viewFile:filePanel" oncomplete="#{rich:component('viewCertificate'.concat(_formType).concat(':viewFile'))}.show();" execute="@this"/>
 
             <h:outputText rendered="#{manageCertificateAction.compare(_certFN)}">
-                <span style="color: green">The Key matches the Certificate</span>
+                <span style="color: green">#{msg['cert.theKeyMatchesCertificate']}</span>
             </h:outputText>
 
             <h:outputText rendered="#{not manageCertificateAction.compare(_certFN)}">
-                <span style="color: red">The Key does not match the Certificate</span>
+                <span style="color: red">#{msg['cert.theKeyDoesNotMatchCertificate']}</span>
             </h:outputText>
 
             <h:outputText rendered="#{not manageCertificateAction.certPresent(_certFN)}">
-                <span style="color: red">Certificates were not found. Please inform Gluu support about this.</span>
+                <span style="color: red">#{msg['cert.certificatesWereNotFound']}</span>
             </h:outputText>
         </h:panelGrid>
 
         <h:panelGrid columns="2" width="100%" border="0" cellpadding="0" cellspacing="0">
-            <a4j:commandButton value="Cert Info" action="#{manageCertificateAction.getCert(_certFN)}" render="certInfoSubject, certInfoIssuer" oncomplete="#{rich:component('certInfoViewer')}.show();" execute="@this"/>
+            <a4j:commandButton value="#{msg['cert.certInfo']}" action="#{manageCertificateAction.getCert(_certFN)}" render="certInfoSubject, certInfoIssuer" oncomplete="#{rich:component('certInfoViewer')}.show();" execute="@this"/>
 
-            <h:commandButton value="Generate CSR" action="#{manageCertificateAction.generateCSR(_certFN)}" />
+            <h:commandButton value="#{msg['cert.generateCSR']}" action="#{manageCertificateAction.generateCSR(_certFN)}" />
 
-            <a4j:commandButton value="Upload Cert" action="#{manageCertificateAction.setUploadMarker(_certFN)}" oncomplete="#{rich:component('certUpload')}.show();" execute="@this"/>
-            <a4j:commandButton value="Upload Key" action="#{manageCertificateAction.setUploadMarker(_certFN)}" oncomplete="#{rich:component('keyUpload')}.show();" execute="@this"/>
+            <a4j:commandButton value="#{msg['cert.uploadCert']}" action="#{manageCertificateAction.setUploadMarker(_certFN)}" oncomplete="#{rich:component('certUpload')}.show();" execute="@this"/>
+            <a4j:commandButton value="#{msg['cert.uploadKey']}" action="#{manageCertificateAction.setUploadMarker(_certFN)}" oncomplete="#{rich:component('keyUpload')}.show();" execute="@this"/>
         </h:panelGrid>
     </h:panelGrid>
 </ui:composition>

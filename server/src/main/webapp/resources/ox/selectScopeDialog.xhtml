@@ -1,14 +1,14 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:s="http://jboss.org/schema/seam/taglib"
-    xmlns:ui="http://java.sun.com/jsf/facelets"
-    xmlns:f="http://java.sun.com/jsf/core"
-    xmlns:h="http://java.sun.com/jsf/html" 
+    xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+    xmlns:f="http://xmlns.jcp.org/jsf/core"
+    xmlns:h="http://xmlns.jcp.org/jsf/html" 
     xmlns:a4j="http://richfaces.org/a4j" 
     xmlns:rich="http://richfaces.org/rich"
     xmlns:gluufn="http://www.gluu.org/jsf/functions"
-    xmlns:richext="http://java.sun.com/jsf/composite/richext"
-    xmlns:cc="http://java.sun.com/jsf/composite">
+    xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
+    xmlns:ox="http://xmlns.jcp.org/jsf/composite/ox"
+    xmlns:cc="http://xmlns.jcp.org/jsf/composite">
 
 <cc:interface>
     <cc:attribute name="label" default="Add Scope" required="false" type="java.lang.String" />
@@ -34,24 +34,23 @@
         
             <h:panelGroup id = "scopePanelId">
            
-                <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="searchPattern">
-                    <ui:param name="_hideLabel" value="true" />
+                <ox:decorate id="searchPattern" hideLabel="true">
                     
                     <h:inputText  value="#{cc.attrs.searchPattern}" size="20" maxlength="30" id="searchScopePatternId" styleClass="searchParameters form-control"
                         alt="Search parameters like iNum, Name, Display Name" />
                        
                     <a4j:commandButton style = "margin-top:5px;" styleClass = "btn btn-primary" value="Search" action="#{cc.attrs.searchMethod}" render="scopePanelId"  />
-                </s:decorate>
+                </ox:decorate>
 
-                <h:panelGroup id="scopeNoResultId" rendered="#{cc.attrs.searchResult.size eq 0}">
+                <h:panelGroup id="scopeNoResultId" rendered="#{cc.attrs.searchResult.size() eq 0}">
                     <h:outputText value="No Search Result Found" />
                 </h:panelGroup>
 
-                <s:fragment rendered="#{cc.attrs.updateSelectionMethod != null}">
+                <ui:fragment rendered="#{cc.attrs.updateSelectionMethod != null}">
                     <a4j:jsFunction name="executeUpdateSelection" action="#{cc.attrs.updateSelectionMethod}" render="scopePanelId"/>
-                </s:fragment>
+                </ui:fragment>
 
-                <h:panelGroup style="overflow-y:auto; width:815px;#{cc.attrs.searchResult.size gt 5 ? ' height:310px;' : ''}" layout="block" rendered="#{cc.attrs.searchResult.size gt 0}">
+                <h:panelGroup style="overflow-y:auto; width:815px;#{cc.attrs.searchResult.size() gt 5 ? ' height:310px;' : ''}" layout="block" rendered="#{cc.attrs.searchResult.size() gt 0}">
                     <h:dataTable styleClass="table table-hover rt" sortMode="single" id="scopeListId" value="#{cc.attrs.searchResult}"  var="prs" columnClasses=" , , ,selectscopedailoguefourthcolumn">
                         <h:column>
                             <f:facet name="header">X</f:facet>

@@ -6,45 +6,40 @@
 
 package org.gluu.oxtrust.ldap.service.uma;
 
+import org.gluu.search.filter.Filter;
+import org.gluu.oxtrust.ldap.service.OrganizationService;
+import org.gluu.oxtrust.util.OxTrustConstants;
+import org.gluu.persist.ldap.impl.LdapEntryManager;
+import org.gluu.persist.model.base.SimpleBranch;
+import org.slf4j.Logger;
+import org.xdi.oxauth.model.uma.persistence.UmaScopeDescription;
+import org.xdi.util.INumGenerator;
+import org.xdi.util.StringHelper;
+
+import javax.ejb.Stateless;
+import javax.inject.Inject;
+import javax.inject.Named;
 import java.io.Serializable;
 import java.util.List;
-
-import org.gluu.oxtrust.ldap.service.OrganizationService;
-import org.gluu.oxtrust.model.OxAuthClient;
-import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.LdapEntryManager;
-import org.hibernate.annotations.common.util.StringHelper;
-import org.jboss.seam.Component;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.AutoCreate;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.log.Log;
-import org.xdi.ldap.model.SimpleBranch;
-import org.xdi.oxauth.model.uma.persistence.ScopeDescription;
-import org.xdi.util.INumGenerator;
-
-import com.unboundid.ldap.sdk.Filter;
 
 /**
  * Provides operations with scope descriptions
  * 
  * @author Yuriy Movchan Date: 12/07/2012
  */
-@Scope(ScopeType.STATELESS)
-@Name("scopeDescriptionService")
-@AutoCreate
+@Stateless
+@Named("scopeDescriptionService")
 public class ScopeDescriptionService implements Serializable {
 
 	private static final long serialVersionUID = -3537567020929600777L;
 
-	@In
-	private LdapEntryManager ldapEntryManager;
+	@Inject
+	private LdapEntryManager ldapEntryManager;	
+	@Inject
+	private OrganizationService organizationService;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
 	public void addBranch() {
 		SimpleBranch branch = new SimpleBranch();
@@ -70,11 +65,11 @@ public class ScopeDescriptionService implements Serializable {
 	/**
 	 * Get scope description by DN
 	 * 
-	 * @param DN Scope description DN
+	 * @param dn Scope description DN
 	 * @return Scope description
 	 */
-	public ScopeDescription getScopeDescriptionByDn(String dn) {
-		return ldapEntryManager.find(ScopeDescription.class, dn);
+	public UmaScopeDescription getScopeDescriptionByDn(String dn) {
+		return ldapEntryManager.find(UmaScopeDescription.class, dn);
 	}
 
 	/**
@@ -83,7 +78,7 @@ public class ScopeDescriptionService implements Serializable {
 	 * @param scopeDescription
 	 *            Scope description
 	 */
-	public void addScopeDescription(ScopeDescription scopeDescription) {
+	public void addScopeDescription(UmaScopeDescription scopeDescription) {
 		ldapEntryManager.persist(scopeDescription);
 	}
 
@@ -92,7 +87,7 @@ public class ScopeDescriptionService implements Serializable {
 	 * 
 	 * @param scopeDescription Scope description
 	 */
-	public void updateScopeDescription(ScopeDescription scopeDescription) {
+	public void updateScopeDescription(UmaScopeDescription scopeDescription) {
 		ldapEntryManager.merge(scopeDescription);
 	}
 
@@ -101,7 +96,7 @@ public class ScopeDescriptionService implements Serializable {
 	 * 
 	 * @param scopeDescription Scope description
 	 */
-	public void removeScopeDescription(ScopeDescription scopeDescription) {
+	public void removeScopeDescription(UmaScopeDescription scopeDescription) {
 		ldapEntryManager.remove(scopeDescription);
 	}
 
@@ -110,7 +105,7 @@ public class ScopeDescriptionService implements Serializable {
 	 * 
 	 * @return True if scope description with specified attributes exist
 	 */
-	public boolean containsScopeDescription(ScopeDescription scopeDescription) {
+	public boolean containsScopeDescription(UmaScopeDescription scopeDescription) {
 		return ldapEntryManager.contains(scopeDescription);
 	}
 
@@ -119,8 +114,8 @@ public class ScopeDescriptionService implements Serializable {
 	 * 
 	 * @return List of scope descriptions
 	 */
-	public List<ScopeDescription> getAllScopeDescriptions(String... ldapReturnAttributes) {
-		return ldapEntryManager.findEntries(getDnForScopeDescription(null), ScopeDescription.class, ldapReturnAttributes, null);
+	public List<UmaScopeDescription> getAllScopeDescriptions(String... ldapReturnAttributes) {
+		return ldapEntryManager.findEntries(getDnForScopeDescription(null), UmaScopeDescription.class, null, ldapReturnAttributes);
 	}
 
 	/**
@@ -130,19 +125,19 @@ public class ScopeDescriptionService implements Serializable {
 	 * @param sizeLimit Maximum count of results
 	 * @return List of scope descriptions
 	 */
-	public List<ScopeDescription> findScopeDescriptions(String pattern, int sizeLimit) {
+	public List<UmaScopeDescription> findScopeDescriptions(String pattern, int sizeLimit) {
 		String[] targetArray = new String[] { pattern };
 		Filter oxIdFilter = Filter.createSubstringFilter("oxId", null, targetArray, null);
 		Filter displayNameFilter = Filter.createSubstringFilter(OxTrustConstants.displayName, null, targetArray, null);
 		Filter searchFilter = Filter.createORFilter(oxIdFilter, displayNameFilter);
 
-		List<ScopeDescription> result = ldapEntryManager.findEntries(getDnForScopeDescription(null), ScopeDescription.class, searchFilter, 0, sizeLimit);
+		List<UmaScopeDescription> result = ldapEntryManager.findEntries(getDnForScopeDescription(null), UmaScopeDescription.class, searchFilter, sizeLimit);
 
 		return result;
 	}
 	
-	  public List<ScopeDescription> getAllScopeDescriptions(int sizeLimit) {		
-			return ldapEntryManager.findEntries(getDnForScopeDescription(null), ScopeDescription.class, null, 0, sizeLimit);
+	  public List<UmaScopeDescription> getAllScopeDescriptions(int sizeLimit) {
+			return ldapEntryManager.findEntries(getDnForScopeDescription(null), UmaScopeDescription.class, null, sizeLimit);
 	    }
 
 
@@ -152,7 +147,7 @@ public class ScopeDescriptionService implements Serializable {
 	 * @param scopeDescription Scope description
 	 * @return List of ScopeDescription which conform example
 	 */
-	public List<ScopeDescription> findScopeDescriptions(ScopeDescription scopeDescription) {
+	public List<UmaScopeDescription> findScopeDescriptions(UmaScopeDescription scopeDescription) {
 		return ldapEntryManager.findEntries(scopeDescription);
 	}
 	/**
@@ -161,8 +156,8 @@ public class ScopeDescriptionService implements Serializable {
 	 * @param id Id
 	 * @return List of ScopeDescription which specified id
 	 */
-	public List<ScopeDescription> findScopeDescriptionsById(String id) {
-		return ldapEntryManager.findEntries(getDnForScopeDescription(null), ScopeDescription.class,
+	public List<UmaScopeDescription> findScopeDescriptionsById(String id) {
+		return ldapEntryManager.findEntries(getDnForScopeDescription(null), UmaScopeDescription.class,
 				Filter.createEqualityFilter("oxId", id));
 	}
 
@@ -172,7 +167,7 @@ public class ScopeDescriptionService implements Serializable {
 	 * @return New inum for scope description
 	 */
 	public String generateInumForNewScopeDescription() {
-		ScopeDescription scopeDescription = new ScopeDescription();
+        UmaScopeDescription scopeDescription = new UmaScopeDescription();
 		String newInum = null;
 		do {
 			newInum = generateInumForNewScopeDescriptionImpl();
@@ -189,7 +184,7 @@ public class ScopeDescriptionService implements Serializable {
 	 * @return New inum for scope description
 	 */
 	private String generateInumForNewScopeDescriptionImpl() {
-		String orgInum = OrganizationService.instance().getInumForOrganization();
+		String orgInum = organizationService.getInumForOrganization();
 		return orgInum + OxTrustConstants.inumDelimiter + INumGenerator.generate(2);
 	}
 
@@ -197,21 +192,12 @@ public class ScopeDescriptionService implements Serializable {
 	 * Build DN string for scope description
 	 */
 	public String getDnForScopeDescription(String inum) {
-		String orgDn = OrganizationService.instance().getDnForOrganization();
+		String orgDn = organizationService.getDnForOrganization();
 		if (StringHelper.isEmpty(inum)) {
 			return String.format("ou=scopes,ou=uma,%s", orgDn);
 		}
 
 		return String.format("inum=%s,ou=scopes,ou=uma,%s", inum, orgDn);
-	}
-
-	/**
-	 * Get ScopeDescriptionService instance
-	 * 
-	 * @return ScopeDescriptionService instance
-	 */
-	public static ScopeDescriptionService instance() {
-		return (ScopeDescriptionService) Component.getInstance(ScopeDescriptionService.class);
 	}
 
 }

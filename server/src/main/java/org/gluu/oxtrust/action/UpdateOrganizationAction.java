@@ -15,37 +15,37 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.mail.AuthenticationFailedException;
-import javax.mail.MessagingException;
+import javax.annotation.PreDestroy;
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
 
 import org.apache.commons.beanutils.PropertyUtils;
-import org.gluu.oxtrust.config.OxTrustConfiguration;
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.model.RenderParameters;
+import org.gluu.jsf2.service.ConversationService;
+import org.gluu.oxtrust.config.ConfigurationFactory;
+import org.gluu.oxtrust.ldap.service.AppInitializer;
 import org.gluu.oxtrust.ldap.service.ApplianceService;
 import org.gluu.oxtrust.ldap.service.ImageService;
 import org.gluu.oxtrust.ldap.service.OrganizationService;
 import org.gluu.oxtrust.model.GluuAppliance;
 import org.gluu.oxtrust.model.GluuCustomPerson;
 import org.gluu.oxtrust.model.GluuOrganization;
-import org.gluu.oxtrust.util.MailUtils;
+import org.gluu.oxtrust.security.Identity;
+import org.gluu.oxtrust.service.render.RenderService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.exception.LdapMappingException;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.Destroy;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.core.Events;
-import org.jboss.seam.faces.FacesMessages;
-import org.jboss.seam.international.StatusMessage.Severity;
-import org.jboss.seam.international.StatusMessages;
-import org.jboss.seam.log.Log;
+import org.gluu.persist.exception.mapping.BaseMappingException;
 import org.richfaces.event.FileUploadEvent;
 import org.richfaces.model.UploadedFile;
-import org.xdi.config.oxtrust.ApplicationConfiguration;
+import org.slf4j.Logger;
+import org.xdi.config.oxauth.WebKeysSettings;
+import org.xdi.config.oxtrust.LdapOxAuthConfiguration;
 import org.xdi.model.GluuImage;
 import org.xdi.model.SmtpConfiguration;
+import org.xdi.service.MailService;
+import org.xdi.service.security.Secure;
 import org.xdi.util.StringHelper;
 
 /**
@@ -53,39 +53,48 @@ import org.xdi.util.StringHelper;
  * 
  * @author Yuriy Movchan Date: 11.16.2010
  */
-@Name("updateOrganizationAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@Named("updateOrganizationAction")
+@ConversationScoped
+@Secure("#{permissionService.hasPermission('configuration', 'access')}")
 public class UpdateOrganizationAction implements Serializable {
 
 	private static final long serialVersionUID = -4470460481895022468L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In
-	private StatusMessages statusMessages;
-
-	@In
-	private GluuCustomPerson currentPerson;
-
-	@In
-	private ImageService imageService;
-
-	@In
-	private OrganizationService organizationService;
-
-	@In
-	private ApplianceService applianceService;
-
-	@In
-	private OxTrustConfiguration oxTrustConfiguration;
-
-	@In
+	@Inject
 	private FacesMessages facesMessages;
 
-	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
-	private ApplicationConfiguration applicationConfiguration;
+	@Inject
+	private ConversationService conversationService;
+
+	@Inject
+	private Identity identity;
+
+	@Inject
+	private ImageService imageService;
+
+	@Inject
+	private OrganizationService organizationService;
+
+	@Inject
+	private ApplianceService applianceService;
+
+	@Inject
+	private ConfigurationFactory configurationFactory;
+
+	@Inject
+	private AppInitializer appInitializer;
+
+    @Inject
+	private MailService mailService;
+
+    @Inject
+    private RenderParameters rendererParameters;
+
+    @Inject
+    private RenderService renderService;
 
 	private GluuOrganization organization;
 
@@ -103,17 +112,32 @@ public class UpdateOrganizationAction implements Serializable {
 	
 	private List<GluuAppliance> appliances;
 
-	@Restrict("#{s:hasPermission('configuration', 'access')}")
+	private boolean initialized;
+	private WebKeysSettings webKeysSettings;
+
+	private LdapOxAuthConfiguration  ldapOxAuthConfiguration;
+
+	private SmtpConfiguration smtpConfiguration;
+
 	public String modify()  {
+		if (this.initialized) {
+			return OxTrustConstants.RESULT_SUCCESS;
+		}
+
 		String resultOrganization = modifyOrganization();
 		String resultApplliance = modifyApplliance();
 
-		if (StringHelper.equals(OxTrustConstants.RESULT_SUCCESS, resultOrganization)
-				&& StringHelper.equals(OxTrustConstants.RESULT_SUCCESS, resultApplliance)) {
-			return OxTrustConstants.RESULT_SUCCESS;
-		} else {
+		if (!StringHelper.equals(OxTrustConstants.RESULT_SUCCESS, resultOrganization)
+				|| !StringHelper.equals(OxTrustConstants.RESULT_SUCCESS, resultApplliance)) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to prepare for organization configuration update");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
+
+		this.initialized = true;
+
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
 	private String modifyOrganization()  {
@@ -132,7 +156,7 @@ public class UpdateOrganizationAction implements Serializable {
 				log.error("Failed to load organization", ex);
 				this.organization = null;
 			}
-		} catch (LdapMappingException ex) {
+		} catch (BaseMappingException ex) {
 			log.error("Failed to load organization", ex);
 		}
 
@@ -146,10 +170,10 @@ public class UpdateOrganizationAction implements Serializable {
 		this.loginPageCustomMessage = organizationService.getOrganizationCustomMessage(OxTrustConstants.CUSTOM_MESSAGE_LOGIN_PAGE);
 		this.welcomePageCustomMessage = organizationService.getOrganizationCustomMessage(OxTrustConstants.CUSTOM_MESSAGE_WELCOME_PAGE);
 		this.welcomeTitleText = organizationService.getOrganizationCustomMessage(OxTrustConstants.CUSTOM_MESSAGE_TITLE_TEXT);
-
+		initOxAuthSetting();
 		appliances = new ArrayList<GluuAppliance>();
 		try {
-			appliances.addAll(ApplianceService.instance().getAppliances());
+			appliances.addAll(applianceService.getAppliances());
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -157,6 +181,20 @@ public class UpdateOrganizationAction implements Serializable {
 		
 		
 		return OxTrustConstants.RESULT_SUCCESS;
+	}
+
+	private void initOxAuthSetting(){
+		String configurationDn = configurationFactory.getConfigurationDn();
+		try {
+			 ldapOxAuthConfiguration =  organizationService.getOxAuthSetting(configurationDn);
+			 this.webKeysSettings =  ldapOxAuthConfiguration.getOxWebKeysSettings() ;
+			 
+			 if(webKeysSettings == null){
+				 webKeysSettings = new WebKeysSettings(); 
+			 } 			 
+		} catch (BaseMappingException ex) {
+			log.error("Failed to load configuration from LDAP");
+		}
 	}
 
 	private void initLogoImage() {
@@ -172,7 +210,6 @@ public class UpdateOrganizationAction implements Serializable {
 		this.curFaviconImage = this.oldFaviconImage;
 	}
 
-	@Restrict("#{s:hasPermission('configuration', 'access')}")
 	public String save() {
 		// Update organization
 		try {
@@ -181,60 +218,64 @@ public class UpdateOrganizationAction implements Serializable {
 
 			setCustomMessages();
 			organizationService.updateOrganization(this.organization);
-			
-			updateSmptConfiguration(this.appliance);
+
+			// Encrypt password and prepare SMTP configuration
+			applianceService.encryptedSmtpPassword(smtpConfiguration);
 			
 			applianceService.updateAppliance(this.appliance);
-
-			Events.instance().raiseEvent(OxTrustConstants.EVENT_CLEAR_ORGANIZATION);
+			saveWebKeySettings();
 
 			/* Resolv.conf update */
 			// saveDnsInformation(); // This will be handled by puppet.
 			/* Resolv.conf update */
-		} catch (LdapMappingException ex) {
+		} catch (BaseMappingException ex) {
 			log.error("Failed to update organization", ex);
-			facesMessages.add(Severity.ERROR, "Failed to update organization");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to update organization");
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
+		
+		facesMessages.add(FacesMessage.SEVERITY_INFO, "Organization configuration updated successfully");
 
 		return modify();
 	}
-
-	private void updateSmptConfiguration(GluuAppliance appliance) {
-		SmtpConfiguration smtpConfiguration = new SmtpConfiguration();
-		smtpConfiguration.setHost(appliance.getSmtpHost());
-		smtpConfiguration.setPort(StringHelper.toInteger(appliance.getSmtpPort(), 25));
-		smtpConfiguration.setRequiresSsl(StringHelper.toBoolean(appliance.getSmtpRequiresSsl(), false));
-		smtpConfiguration.setFromName(appliance.getSmtpFromName());
-		smtpConfiguration.setFromEmailAddress(appliance.getSmtpFromEmailAddress());
-		smtpConfiguration.setRequiresAuthentication(StringHelper.toBoolean(appliance.getSmtpRequiresAuthentication(), false));
-		smtpConfiguration.setUserName(appliance.getSmtpUserName());
-		smtpConfiguration.setPassword(appliance.getSmtpPassword());
-		
-		appliance.setSmtpConfiguration(smtpConfiguration);
+	
+	public void saveWebKeySettings() {
+		String configurationDn = configurationFactory.getConfigurationDn();
+		ldapOxAuthConfiguration = organizationService.getOxAuthSetting(configurationDn);
+		WebKeysSettings oldwebKeysSettings = ldapOxAuthConfiguration.getOxWebKeysSettings();
+		if ((oldwebKeysSettings != null) && !oldwebKeysSettings.equals(webKeysSettings)) {
+			webKeysSettings.setUpdateAt(new Date());
+			ldapOxAuthConfiguration.setOxWebKeysSettings(webKeysSettings);
+			organizationService.saveLdapOxAuthConfiguration(ldapOxAuthConfiguration);
+		}
 	}
 
-	@Restrict("#{s:hasPermission('configuration', 'access')}")
 	public String verifySmtpConfiguration() {
-		log.info("HostName: " + appliance.getSmtpHost() + " Port: " + appliance.getSmtpPort() + " RequireSSL: " + appliance.isRequiresSsl()
-				+ " RequireSSL: " + appliance.isRequiresAuthentication());
-		log.info("UserName: " + appliance.getSmtpUserName() + " Password: " + appliance.getSmtpPasswordStr());
+		log.info("HostName: " + smtpConfiguration.getHost() + " Port: " + smtpConfiguration.getPort() + " RequireSSL: " + smtpConfiguration.isRequiresSsl()
+				+ " RequireSSL: " + smtpConfiguration.isRequiresAuthentication());
+		log.debug("UserName: " + smtpConfiguration.getUserName() + " Password: " + smtpConfiguration.getPasswordDecrypted());
 
-		try {
-			MailUtils mail = new MailUtils(appliance.getSmtpHost(), appliance.getSmtpPort(), appliance.isRequiresSsl(),
-					appliance.isRequiresAuthentication(), appliance.getSmtpUserName(), appliance.getSmtpPasswordStr());
-			mail.sendMail(appliance.getSmtpFromName() + " <" + appliance.getSmtpFromEmailAddress() + ">",
-					appliance.getSmtpFromEmailAddress(), "SMTP Server Configuration Verification",
-					"SMTP Server Configuration Verification Successful.");
-		} catch (AuthenticationFailedException ex) {
-			log.error("SMTP Authentication Error: ", ex);
-			return OxTrustConstants.RESULT_FAILURE;
-		} catch (MessagingException ex) {
-			log.error("SMTP Host Connection Error", ex);
-			return OxTrustConstants.RESULT_FAILURE;
+
+		String messageSubject = facesMessages.evalResourceAsString("#{msg['mail.verify.message.subject']}");
+		String messagePlain = facesMessages.evalResourceAsString("#{msg['mail.verify.message.plain.body']}");
+		String messageHtml = facesMessages.evalResourceAsString("#{msg['mail.verify.message.html.body']}");
+
+//		rendererParameters.setParameter("mail_body", messageHtml);
+//		String mailHtml = renderService.renderView("/WEB-INF/mail/verify_settings.xhtml");
+
+		boolean result = mailService.sendMail(smtpConfiguration, smtpConfiguration.getFromEmailAddress(), smtpConfiguration.getFromName(), smtpConfiguration.getFromEmailAddress(), null,
+				messageSubject, messagePlain, messageHtml);
+
+		if (result) {
+			log.info("Connection Successful");
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "SMTP Test succeeded!");
+			return OxTrustConstants.RESULT_SUCCESS;
 		}
-		log.info("Connection Successful");
-		return OxTrustConstants.RESULT_SUCCESS;
+
+		facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to connect to SMTP server");
+
+		return OxTrustConstants.RESULT_FAILURE;
 	}
 
 	private String modifyApplliance() {
@@ -246,6 +287,13 @@ public class UpdateOrganizationAction implements Serializable {
 			if (this.appliance == null) {
 				return OxTrustConstants.RESULT_FAILURE;
 			}
+			this.smtpConfiguration = this.appliance.getSmtpConfiguration(); 
+			if (this.smtpConfiguration == null) {
+				this.smtpConfiguration = new SmtpConfiguration();
+				this.appliance.setSmtpConfiguration(smtpConfiguration);
+			}
+			
+			applianceService.decryptSmtpPassword(smtpConfiguration);
  
 			return OxTrustConstants.RESULT_SUCCESS;
 		} catch (Exception ex) {
@@ -267,7 +315,6 @@ public class UpdateOrganizationAction implements Serializable {
 		}
 	}
 
-	@Restrict("#{s:hasPermission('configuration', 'access')}")
 	public String getBuildDate() {
 		if (this.buildDate != null) {
 			return this.buildDate;
@@ -275,7 +322,11 @@ public class UpdateOrganizationAction implements Serializable {
 
 		DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd hh:mm");
 		try {
-			String buildDate = OxTrustConstants.getGluuBuildDate();
+			String buildDate = appInitializer.getGluuBuildDate();
+			if (StringHelper.isEmpty(buildDate)) {
+				return buildDate;
+			}
+
 			final Date date = formatter.parse(buildDate);
 			this.buildDate = new SimpleDateFormat("hh:mm MMM dd yyyy").format(date) + " UTC";
 		} catch (ParseException e) {
@@ -285,20 +336,23 @@ public class UpdateOrganizationAction implements Serializable {
 		return this.buildDate;
 	}
 
-	@Restrict("#{s:hasPermission('configuration', 'access')}")
 	public String getBuildNumber() {
 		if (this.buildNumber != null) {
 			return this.buildNumber;
 		}
 
-		this.buildNumber = OxTrustConstants.getGluuBuildNumber();
+		this.buildNumber = appInitializer.getGluuBuildNumber();
 		return this.buildNumber;
 	}
 
-	@Restrict("#{s:hasPermission('configuration', 'access')}")
-	public void cancel() throws Exception {
+	public String cancel() throws Exception {
 		cancelLogoImage();
 		cancelFaviconImage();
+		
+		facesMessages.add(FacesMessage.SEVERITY_INFO, "Organization configuration not updated");
+		conversationService.endConversation();
+		
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
 	public void setCustLogoImage(FileUploadEvent event) {
@@ -317,7 +371,7 @@ public class UpdateOrganizationAction implements Serializable {
 	private void setCustLogoImageImpl(UploadedFile uploadedFile) {
 		removeLogoImage();
 
-		GluuImage newLogoImage = imageService.constructImage(currentPerson, uploadedFile);
+		GluuImage newLogoImage = imageService.constructImage(identity.getUser(), uploadedFile);
 		newLogoImage.setStoreTemporary(true);
 		newLogoImage.setLogo(true);
 		try {
@@ -327,7 +381,7 @@ public class UpdateOrganizationAction implements Serializable {
 
 			this.organization.setLogoImage(imageService.getXMLFromGluuImage(newLogoImage));
 		} catch (Exception ex) {
-			log.error("Failed to store icon image: '{0}'", ex, newLogoImage);
+			log.error("Failed to store icon image: '{}'", newLogoImage, ex);
 		}
 	}
 
@@ -347,7 +401,7 @@ public class UpdateOrganizationAction implements Serializable {
 			try {
 				imageService.deleteImage(this.curLogoImage);
 			} catch (Exception ex) {
-				log.error("Failed to delete temporary icon image: '{0}'", ex, this.curLogoImage);
+				log.error("Failed to delete temporary icon image: '{}'", this.curLogoImage, ex);
 			}
 		}
 	}
@@ -375,7 +429,7 @@ public class UpdateOrganizationAction implements Serializable {
 			try {
 				imageService.deleteImage(this.oldLogoImage);
 			} catch (Exception ex) {
-				log.error("Failed to remove old icon image: '{0}'", ex, this.oldLogoImage);
+				log.error("Failed to remove old icon image: '{}'", this.oldLogoImage, ex);
 			}
 		}
 
@@ -385,7 +439,7 @@ public class UpdateOrganizationAction implements Serializable {
 				imageService.moveLogoImageToPersistentStore(this.curLogoImage);
 				this.organization.setLogoImage(imageService.getXMLFromGluuImage(curLogoImage));
 			} catch (Exception ex) {
-				log.error("Failed to move new icon image to persistence store: '{0}'", ex, this.curLogoImage);
+				log.error("Failed to move new icon image to persistence store: '{}'", this.curLogoImage, ex);
 			}
 		}
 
@@ -408,7 +462,7 @@ public class UpdateOrganizationAction implements Serializable {
 	public void setFaviconImageImpl(UploadedFile uploadedFile) {
 		removeFaviconImage();
 
-		GluuImage newFaviconImage = imageService.constructImage(currentPerson, uploadedFile);
+		GluuImage newFaviconImage = imageService.constructImage(identity.getUser(), uploadedFile);
 		newFaviconImage.setStoreTemporary(true);
 		newFaviconImage.setLogo(false);
 		try {
@@ -418,7 +472,7 @@ public class UpdateOrganizationAction implements Serializable {
 
 			this.organization.setFaviconImage(imageService.getXMLFromGluuImage(newFaviconImage));
 		} catch (Exception ex) {
-			log.error("Failed to store favicon image: '{0}'", ex, newFaviconImage);
+			log.error("Failed to store favicon image: '{}'", newFaviconImage, ex);
 		}
 	}
 
@@ -438,7 +492,7 @@ public class UpdateOrganizationAction implements Serializable {
 			try {
 				imageService.deleteImage(this.curFaviconImage);
 			} catch (Exception ex) {
-				log.error("Failed to delete temporary favicon image: '{0}'", ex, this.curFaviconImage);
+				log.error("Failed to delete temporary favicon image: '{}'", this.curFaviconImage, ex);
 			}
 		}
 	}
@@ -466,7 +520,7 @@ public class UpdateOrganizationAction implements Serializable {
 			try {
 				imageService.deleteImage(this.oldFaviconImage);
 			} catch (Exception ex) {
-				log.error("Failed to remove old favicon image: '{0}'", ex, this.oldFaviconImage);
+				log.error("Failed to remove old favicon image: '{}'", this.oldFaviconImage, ex);
 			}
 		}
 
@@ -475,7 +529,7 @@ public class UpdateOrganizationAction implements Serializable {
 			try {
 				imageService.moveImageToPersistentStore(this.curFaviconImage);
 			} catch (Exception ex) {
-				log.error("Failed to move new favicon image to persistence store: '{0}'", ex, this.curFaviconImage);
+				log.error("Failed to move new favicon image to persistence store: '{}'", this.curFaviconImage, ex);
 			}
 		}
 
@@ -490,7 +544,7 @@ public class UpdateOrganizationAction implements Serializable {
 		return organization;
 	}
 
-	@Destroy
+	@PreDestroy
 	public void destroy() throws Exception {
 		// When user decided to leave form without saving we must remove added
 		// logo image from disk
@@ -537,6 +591,18 @@ public class UpdateOrganizationAction implements Serializable {
 	 */
 	public void setAppliances(List<GluuAppliance> appliances) {
 		this.appliances = appliances;
+	}
+
+	public WebKeysSettings getWebKeysSettings() {
+		return webKeysSettings;
+	}
+
+	public void setWebKeysSettings(WebKeysSettings webKeysSettings) {
+		this.webKeysSettings = webKeysSettings;
+	}
+
+	public SmtpConfiguration getSmtpConfiguration() {
+		return smtpConfiguration;
 	}
 
 }

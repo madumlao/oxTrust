@@ -488,11 +488,6 @@
             "id": "scimTestMode",
             "type": "boolean"
         },
-        "scimTestModeAccessToken": {
-            "id": "scimTestModeAccessToken",
-            "type": "string",
-            "readonly": true
-        },
         "shibbolethVersion": {
             "id": "shibbolethVersion",
             "type": "string",
@@ -567,7 +562,23 @@
                 "TRACE",
                 "ALL"
             ]
+        },
+      "ScimProperties":{
+        "id": "ScimProperties",
+        "title": "Scim properties",
+        "type": "object",
+        "properties": {
+          "maxCount":{
+            "title": "MAX COUNT",
+            "type": "integer",
+            "description": "Max. number of results returned in queries when \"count\" query param is not specified",
+            "default": 200,
+            "minimum": 1,
+            "maximum": 200
+          }
         }
+      }
+
     },
     "required": [
         "baseDN",
@@ -653,7 +664,6 @@
         "rptConnectionPoolValidateAfterInactivity",
         "rptConnectionPoolCustomKeepAliveTimeout",
         "scimTestMode",
-        "scimTestModeAccessToken",
         "shibbolethVersion",
         "shibboleth3IdpRootDir",
         "shibboleth3SpConfDir",

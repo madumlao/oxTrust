@@ -6,43 +6,49 @@
 
 package org.gluu.oxtrust.action;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 
+import javax.enterprise.context.ConversationScoped;
 import javax.faces.application.FacesMessage;
 import javax.faces.component.UIComponent;
 import javax.faces.component.UIInput;
 import javax.faces.context.FacesContext;
+import javax.inject.Inject;
+import javax.inject.Named;
 
+import org.codehaus.jackson.JsonParseException;
+import org.codehaus.jackson.map.JsonMappingException;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.AttributeService;
+import org.gluu.oxtrust.ldap.service.FidoDeviceService;
 import org.gluu.oxtrust.ldap.service.GroupService;
 import org.gluu.oxtrust.ldap.service.IPersonService;
+import org.gluu.oxtrust.ldap.service.MemberService;
 import org.gluu.oxtrust.ldap.service.OrganizationService;
 import org.gluu.oxtrust.model.GluuCustomAttribute;
 import org.gluu.oxtrust.model.GluuCustomPerson;
 import org.gluu.oxtrust.model.GluuGroup;
+import org.gluu.oxtrust.model.fido.GluuCustomFidoDevice;
+import org.gluu.oxtrust.model.fido.GluuDeviceDataBean;
 import org.gluu.oxtrust.service.external.ExternalUpdateUserService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.oxtrust.util.Utils;
-import org.gluu.site.ldap.persistence.exception.LdapMappingException;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Out;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.core.Events;
-import org.jboss.seam.log.Log;
-import org.xdi.config.oxtrust.ApplicationConfiguration;
-import org.xdi.ldap.model.GluuBoolean;
-import org.xdi.ldap.model.GluuStatus;
+import org.gluu.oxtrust.util.ServiceUtil;
+import org.gluu.persist.exception.mapping.BaseMappingException;
+import org.gluu.persist.ldap.impl.LdapEntryManager;
+import org.gluu.persist.model.base.GluuStatus;
+import org.slf4j.Logger;
+import org.xdi.config.oxtrust.AppConfiguration;
 import org.xdi.model.GluuAttribute;
 import org.xdi.model.GluuUserRole;
+import org.xdi.oxauth.model.fido.u2f.protocol.DeviceData;
+import org.xdi.service.security.Secure;
 import org.xdi.util.ArrayHelper;
 import org.xdi.util.StringHelper;
 
@@ -51,49 +57,109 @@ import org.xdi.util.StringHelper;
  * 
  * @author Yuriy Movchan Date: 10.23.2010
  */
-@Scope(ScopeType.CONVERSATION)
-@Name("updatePersonAction")
-@Restrict("#{identity.loggedIn}")
+@ConversationScoped
+@Named("updatePersonAction")
+@Secure("#{permissionService.hasPermission('person', 'access')}")
 public class UpdatePersonAction implements Serializable {
 
 	private static final long serialVersionUID = -3242167044333943689L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
 	private String inum;
 	private boolean update;
 
 	private GluuCustomPerson person;
 
-	@In
+	@Inject
+	private FacesMessages facesMessages;
+
+	@Inject
+	private ConversationService conversationService;
+
+	@Inject
+	private OrganizationService organizationService;
+
+	@Inject
+	private GroupService groupService;
+
+	@Inject
 	private AttributeService attributeService;
 
-	@In
+	@Inject
 	private IPersonService personService;
 
-	@In(create = true)
-	@Out(scope = ScopeType.CONVERSATION)
+	@Inject
 	private CustomAttributeAction customAttributeAction;
 
-	@In(create = true)
-	@Out(scope = ScopeType.CONVERSATION)
+	@Inject
 	private UserPasswordAction userPasswordAction;
 
-	@In(create = true)
-	@Out(scope = ScopeType.CONVERSATION)
+	@Inject
 	private WhitePagesAction whitePagesAction;
 
-	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
-	private ApplicationConfiguration applicationConfiguration;
+	@Inject
+	private AppConfiguration appConfiguration;
 
-	@In
+	@Inject
 	private ExternalUpdateUserService externalUpdateUserService;
+
+	@Inject
+	private MemberService memberService;
 	
-	private GluuStatus gluuStatus ;
+	@Inject
+	private LdapEntryManager ldapEntryManager;
+	
+	@Inject
+	private FidoDeviceService fidoDeviceService;
+
+	private GluuStatus gluuStatus;
 
 	private String password;
+	
 	private String confirmPassword;
+	
+	private List <GluuDeviceDataBean> deviceDataMap;
+	
+	private GluuCustomFidoDevice fidoDevice;
+
+	public GluuCustomFidoDevice getFidoDevice() {
+		return fidoDevice;
+	}
+
+	public void setFidoDevice(GluuCustomFidoDevice fidoDevice) {
+		this.fidoDevice = fidoDevice;
+	}
+
+	public List<GluuDeviceDataBean> getDeviceDataMap() {
+		return deviceDataMap;
+	}
+
+	public void setDeviceDataMap(List<GluuDeviceDataBean> deviceDataMap) {
+		this.deviceDataMap = deviceDataMap;
+	}
+
+	private List<String> externalAuthCustomAttributes;
+
+	private DeviceData deviceDetail;
+
+
+	public DeviceData getDeviceDetail() {
+		return deviceDetail;
+	}
+
+	public void setDeviceDetail(DeviceData deviceDetail) {
+		this.deviceDetail = deviceDetail;
+	}
+
+	public List<String> getExternalAuthCustomAttributes() {
+		return externalAuthCustomAttributes;
+	}
+
+	public void setExternalAuthCustomAttributes(List<String> externalAuthCustomAttributes) {
+		this.externalAuthCustomAttributes = externalAuthCustomAttributes;
+	}
 
 	public GluuStatus getGluuStatus() {
 		return gluuStatus;
@@ -109,9 +175,11 @@ public class UpdatePersonAction implements Serializable {
 	 * @return String describing success of the operation
 	 * @throws Exception
 	 */
-	@Restrict("#{s:hasPermission('person', 'access')}")
 	public String add() {
-		if (!OrganizationService.instance().isAllowPersonModification()) {
+		if (!organizationService.isAllowPersonModification()) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new person");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
@@ -122,7 +190,7 @@ public class UpdatePersonAction implements Serializable {
 		this.update = false;
 		this.person = new GluuCustomPerson();
 
-		initAttributes();
+		initAttributes(true);
 
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
@@ -133,7 +201,6 @@ public class UpdatePersonAction implements Serializable {
 	 * @return String describing success of the operation
 	 * @throws Exception
 	 */
-	@Restrict("#{s:hasPermission('person', 'access')}")
 	public String update() {
 		if (this.person != null) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -142,21 +209,85 @@ public class UpdatePersonAction implements Serializable {
 		this.update = true;
 		try {
 			this.person = personService.getPersonByInum(inum);
-		} catch (LdapMappingException ex) {
-			log.error("Failed to find person {0}", ex, inum);
+		} catch (BaseMappingException ex) {
+			log.error("Failed to find person {}", inum, ex);
+
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to find person");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
-		initAttributes();
-		this.gluuStatus=this.person.getStatus();
+		initAttributes(false);
+		try {
+		this.gluuStatus = this.person.getStatus();
+		List <String> oxexternal = this.person.getOxExternalUid();
+		externalAuthCustomAttributes = new ArrayList<String>();
+		if(oxexternal != null && oxexternal.size()>0){
+			for(String oxexternalStr : oxexternal){
+				String [] args = oxexternalStr.split(":");
+				externalAuthCustomAttributes.add(args[0]);							
+			}			
+		}
+		
+	
+			List<GluuCustomFidoDevice>  gluuCustomFidoDevices = fidoDeviceService.searchFidoDevices( this.person.getInum(),null);
+			deviceDataMap = new ArrayList<GluuDeviceDataBean>();
+			if(gluuCustomFidoDevices != null){
+				for( GluuCustomFidoDevice gluuCustomFidoDevice : gluuCustomFidoDevices){					
+	                GluuDeviceDataBean gluuDeviceDataBean= new GluuDeviceDataBean();
+	                gluuDeviceDataBean.setCreationDate(ldapEntryManager.decodeGeneralizedTime(gluuCustomFidoDevice.getCreationDate()).toGMTString());
+	                gluuDeviceDataBean.setId(gluuCustomFidoDevice.getId());
+	                String devicedata = gluuCustomFidoDevice.getDeviceData();
+	                String modality = "";
+	                String nickName = "";
+	                if(devicedata != null){
+	                	DeviceData deviceData = getDeviceata(devicedata);
+	                	//nickName = deviceData.getName();
+	                	nickName = gluuCustomFidoDevice.getNickname();
+		                modality = "Super-Gluu Device";
+	                }else{
+	                	//nickName = "U2F";
+	                	nickName = gluuCustomFidoDevice.getNickname();
+	                	modality = "U2F device";
+	                }
+	                gluuDeviceDataBean.setNickName(nickName);
+	                gluuDeviceDataBean.setModality(modality);
+	                deviceDataMap.add(gluuDeviceDataBean); 
+				}
+			}
+			
+			if(oxexternal != null && oxexternal.size()>0){
+				for(String oxexternalStr : oxexternal){
+					String [] args = oxexternalStr.split(":");
+					GluuDeviceDataBean gluuDeviceDataBean= new GluuDeviceDataBean();
+					gluuDeviceDataBean.setNickName(args[0]);
+					gluuDeviceDataBean.setModality(args[0]);
+					gluuDeviceDataBean.setId(oxexternalStr);
+					deviceDataMap.add(gluuDeviceDataBean);
+					
+				}			
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 		userPasswordAction.setPerson(this.person);
 
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('person', 'access')}")
-	public void cancel() {
+	public String cancel() {
+		if (update) {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "Person '#{updatePersonAction.person.displayName}' not updated");
+		} else {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "New person not added");
+		}
+
+		conversationService.endConversation();
+
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
 	/**
@@ -164,43 +295,56 @@ public class UpdatePersonAction implements Serializable {
 	 * 
 	 * @return String describing success of the operation
 	 */
-	@Restrict("#{s:hasPermission('person', 'access')}")
 	public String save() throws Exception {
-		if (!OrganizationService.instance().isAllowPersonModification()) {
+		if (!organizationService.isAllowPersonModification()) {
 			return OxTrustConstants.RESULT_FAILURE;
+		}
+		
+		if(!update){
+			if(!validatePerson(this.person)){
+				return OxTrustConstants.RESULT_FAILURE;
+			}			
 		}
 
 		updateCustomObjectClasses();
 
 		List<GluuCustomAttribute> removedAttributes = customAttributeAction.detectRemovedAttributes();
 		customAttributeAction.updateOriginCustomAttributes();
-		
-		List<GluuCustomAttribute>  customAttributes = customAttributeAction.getCustomAttributes();
-		for(GluuCustomAttribute customAttribute: customAttributes){
-			if(customAttribute.getName().equalsIgnoreCase("gluuStatus")){
+
+		List<GluuCustomAttribute> customAttributes = customAttributeAction.getCustomAttributes();
+		for (GluuCustomAttribute customAttribute : customAttributes) {
+			if (customAttribute.getName().equalsIgnoreCase("gluuStatus")) {
 				customAttribute.setValue(gluuStatus.getValue());
 			}
-			
 		}
 
 		this.person.setCustomAttributes(customAttributeAction.getCustomAttributes());
 		this.person.getCustomAttributes().addAll(removedAttributes);
 
 		// Sync email, in reverse ("oxTrustEmail" <- "mail")
-		this.person = Utils.syncEmailReverse(this.person, true);
+		this.person = ServiceUtil.syncEmailReverse(this.person, true);
 
+		boolean runScript = externalUpdateUserService.isEnabled();
 		if (update) {
 			try {
-				if (externalUpdateUserService.isEnabled()) {
+				if (runScript) {
 					externalUpdateUserService.executeExternalUpdateUserMethods(this.person);
-                }
+				}
 				personService.updatePerson(this.person);
-			} catch (LdapMappingException ex) {
-				log.error("Failed to update person {0}", ex, inum);
+				if (runScript) {
+					externalUpdateUserService.executeExternalPostUpdateUserMethods(this.person);
+				}
+			} catch (BaseMappingException ex) {
+				log.error("Failed to update person {}", inum, ex);
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to update person '#{updatePersonAction.person.displayName}'");
+
 				return OxTrustConstants.RESULT_FAILURE;
 			}
+
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "Person '#{updatePersonAction.person.displayName}' updated successfully");
 		} else {
 			if (personService.getPersonByUid(this.person.getUid()) != null) {
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Person with the uid '#{updatePersonAction.person.uid}' already exist'");
 				return OxTrustConstants.RESULT_DUPLICATE;
 			}
 
@@ -225,15 +369,22 @@ public class UpdatePersonAction implements Serializable {
 			}
 
 			try {
-				if (externalUpdateUserService.isEnabled()) {
+				if (runScript) {
 					externalUpdateUserService.executeExternalAddUserMethods(this.person);
-                }
+				}
 				personService.addPerson(this.person);
+				if (runScript) {
+					externalUpdateUserService.executeExternalPostAddUserMethods(this.person);
+				}
 			} catch (Exception ex) {
-				log.error("Failed to add new person {0}", ex, this.person.getInum());
+				log.error("Failed to add new person {}", this.person.getInum(), ex);
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new person'");
 
 				return OxTrustConstants.RESULT_FAILURE;
 			}
+
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "New person '#{updatePersonAction.person.displayName}' added successfully");
+			conversationService.endConversation();
 
 			this.update = true;
 		}
@@ -245,9 +396,10 @@ public class UpdatePersonAction implements Serializable {
 		personService.addCustomObjectClass(this.person);
 
 		// Update objectClasses
-		String[] allObjectClasses = ArrayHelper.arrayMerge(applicationConfiguration.getPersonObjectClassTypes(), this.person.getCustomObjectClasses());
+		String[] allObjectClasses = ArrayHelper.arrayMerge(appConfiguration.getPersonObjectClassTypes(),
+				this.person.getCustomObjectClasses());
 		String[] resultObjectClasses = new HashSet<String>(Arrays.asList(allObjectClasses)).toArray(new String[0]);
-		
+
 		this.person.setCustomObjectClasses(resultObjectClasses);
 	}
 
@@ -257,27 +409,43 @@ public class UpdatePersonAction implements Serializable {
 	 * @return String describing success of the operation
 	 * @throws Exception
 	 */
-	@Restrict("#{s:hasPermission('person', 'access')}")
 	public String delete() {
-		if (!OrganizationService.instance().isAllowPersonModification()) {
+		if (!organizationService.isAllowPersonModification()) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to remove person '#{updatePersonAction.person.displayName}'");
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
 		if (update) {
 			// Remove person
 			try {
-				Events.instance().raiseEvent(OxTrustConstants.EVENT_PERSON_DELETED, this.person);
-				personService.removePerson(this.person);
+				boolean runScript = externalUpdateUserService.isEnabled();
+				if (runScript) {
+					externalUpdateUserService.executeExternalDeleteUserMethods(this.person);
+				}
+				memberService.removePerson(this.person);
+				if (runScript) {
+					externalUpdateUserService.executeExternalPostDeleteUserMethods(this.person);
+				}
+
+				facesMessages.add(FacesMessage.SEVERITY_INFO, "Person '#{updatePersonAction.person.displayName}' removed successfully");
+				conversationService.endConversation();
+
 				return OxTrustConstants.RESULT_SUCCESS;
-			} catch (LdapMappingException ex) {
-				log.error("Failed to remove person {0}", ex, this.person.getInum());
+			} catch (BaseMappingException ex) {
+				log.error("Failed to remove person {}", this.person.getInum(), ex);
 			}
 		}
+
+		facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to remove person '#{updatePersonAction.person.displayName}'");
 
 		return OxTrustConstants.RESULT_FAILURE;
 	}
 
-	private void initAttributes() {
+	private void initAttributes(boolean add) {
+		if (add && externalUpdateUserService.isEnabled()) {
+			externalUpdateUserService.executeExternalNewUserMethods(this.person);
+		}
+
 		List<GluuAttribute> attributes = attributeService.getAllPersonAttributes(GluuUserRole.ADMIN);
 		List<String> origins = attributeService.getAllAttributeOrigins(attributes);
 
@@ -288,26 +456,26 @@ public class UpdatePersonAction implements Serializable {
 			this.person.setCustomAttributes(customAttributes);
 		}
 
-		customAttributeAction.initCustomAttributes(attributes, customAttributes, origins, applicationConfiguration
-				.getPersonObjectClassTypes(), applicationConfiguration.getPersonObjectClassDisplayNames());
+		customAttributeAction.initCustomAttributes(attributes, customAttributes, origins, appConfiguration.getPersonObjectClassTypes(),
+				appConfiguration.getPersonObjectClassDisplayNames());
 
 		if (newPerson) {
 			customAttributeAction.addCustomAttributes(personService.getMandatoryAtributes());
 		}
 	}
-	
-	public String getGroupName(String dn){
-		if(dn != null){
-			GluuGroup group = GroupService.instance().getGroupByDn(dn);
-			if( group != null ){
+
+	public String getGroupName(String dn) {
+		if (dn != null) {
+			GluuGroup group = groupService.getGroupByDn(dn);
+			if (group != null) {
 				String groupName = group.getDisplayName();
-				if(groupName != null && ! groupName.isEmpty()){
+				if (groupName != null && !groupName.isEmpty()) {
 					return groupName;
 				}
 			}
 		}
-		return "invalid group name"; 
-		
+		return "invalid group name";
+
 	}
 
 	/**
@@ -345,24 +513,100 @@ public class UpdatePersonAction implements Serializable {
 	public boolean isUpdate() {
 		return update;
 	}
-	
+
 	public GluuStatus[] getActiveInactiveStatuses() {
 		return new GluuStatus[] { GluuStatus.ACTIVE, GluuStatus.INACTIVE };
 	}
-	
-	public void validateConfirmPassword(FacesContext context, UIComponent comp,
-			Object value){
+
+	public void validateConfirmPassword(FacesContext context, UIComponent comp, Object value) {
 		if (comp.getClientId().endsWith("custpasswordId")) {
 			this.password = (String) value;
 		} else if (comp.getClientId().endsWith("custconfirmpasswordId")) {
 			this.confirmPassword = (String) value;
 		}
 
-		if (!StringHelper.equalsIgnoreCase(password, confirmPassword)) {	
+		if (!StringHelper.equalsIgnoreCase(password, confirmPassword)) {
 			((UIInput) comp).setValid(false);
-			FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_ERROR, "Password and Confirm Password should be same!", "Password and Confirm Password should be same!");
+			FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_ERROR, "Password and Confirm Password should be same!",
+					"Password and Confirm Password should be same!");
 			context.addMessage(comp.getClientId(context), message);
-}		
+		}
 	}
+	
+	public void removeDevice(GluuDeviceDataBean deleteDeviceData){		
+		try {
+			List<GluuCustomFidoDevice>  gluuCustomFidoDevices = fidoDeviceService.searchFidoDevices( this.person.getInum(),null);
+			
+			for( GluuCustomFidoDevice gluuCustomFidoDevice : gluuCustomFidoDevices){				
+                if(gluuCustomFidoDevice.getId().equals(deleteDeviceData.getId())){
+                	fidoDeviceService.removeGluuCustomFidoDevice(gluuCustomFidoDevice);
+                	this.deviceDataMap.remove(deleteDeviceData);
+                	return;
+                } 
+			}
+			
 
+			List <String> list = new ArrayList<String>(this.person.getOxExternalUid());
+			for( String external : list){				
+                if(deleteDeviceData.getId().trim().equals(external.trim())){
+                	list.remove(external);
+                	this.person.setOxExternalUid(list);
+                	this.deviceDataMap.remove(deleteDeviceData);
+                	return;
+                } 
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			 log.error("Failed to remove device ", e);
+		}
+	}
+	
+	private DeviceData  getDeviceata(String data) {
+		ObjectMapper mapper = new ObjectMapper();
+
+		//JSON from file to Object
+		DeviceData obj = null;
+		try {
+			obj = mapper.readValue(data, DeviceData.class);
+		} catch (JsonParseException e) {
+			// TODO Auto-generated catch block
+			log.error("Failed to convert device string to object JsonParseException", e);
+		} catch (JsonMappingException e) {
+			// TODO Auto-generated catch block
+			log.error("Failed to convert device string to object JsonMappingException", e);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			log.error("Failed to convert device string to object IOException", e);
+		}
+		return obj;
+	}
+	
+	public void fetchFidoRecord(String id){
+		this.fidoDevice = fidoDeviceService.getGluuCustomFidoDeviceById(this.person.getInum(), id);
+		if(this.fidoDevice.getDeviceData() != null){
+			this.deviceDetail = getDeviceata(this.fidoDevice.getDeviceData());
+		}else{
+			this.deviceDetail = null;
+		}
+		 
+	}
+	
+	private boolean validatePerson(GluuCustomPerson person) throws Exception {
+	
+		GluuCustomPerson  gluuCustomPerson  = personService.getPersonByUid(person.getUid());
+		if (gluuCustomPerson != null){
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Add User failed. Uid already exist: %s",
+					gluuCustomPerson.getUid());
+			return false;
+		}
+		
+		gluuCustomPerson  = personService.getPersonByEmail(person.getMail());
+		if (gluuCustomPerson != null){
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Add User failed. Mail id already exist: %s",
+					gluuCustomPerson.getMail());
+			return false;
+		}	
+		
+		return true;
+	}
 }

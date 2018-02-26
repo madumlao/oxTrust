@@ -6,16 +6,16 @@
 
 package org.gluu.oxtrust.model;
 
-import org.gluu.oxtrust.config.OxTrustConfiguration;
+import org.gluu.oxtrust.ldap.service.EncryptionService;
+import org.gluu.persist.model.base.Entry;
+import org.gluu.persist.model.base.GluuBoolean;
 import org.gluu.site.ldap.persistence.annotation.LdapAttribute;
 import org.gluu.site.ldap.persistence.annotation.LdapEntry;
 import org.gluu.site.ldap.persistence.annotation.LdapObjectClass;
-import org.xdi.ldap.model.Entry;
-import org.xdi.ldap.model.GluuBoolean;
 import org.xdi.oxauth.model.common.GrantType;
 import org.xdi.oxauth.model.common.ResponseType;
+import org.xdi.service.cdi.util.CdiUtil;
 import org.xdi.util.StringHelper;
-import org.xdi.util.security.StringEncrypter;
 import org.xdi.util.security.StringEncrypter.EncryptionException;
 
 import javax.validation.constraints.NotNull;
@@ -151,8 +151,11 @@ public class OxAuthClient extends Entry implements Serializable {
 
     @LdapAttribute(name = "oxAuthPostLogoutRedirectURI")
     private String[] postLogoutRedirectUris;
+    
+    @LdapAttribute(name = "oxClaimRedirectURI")
+    private String[] claimRedirectURI ;
 
-    @LdapAttribute(name = "oxAuthLogoutURI")
+	@LdapAttribute(name = "oxAuthLogoutURI")
     private List<String> logoutUri;
 
     @LdapAttribute(name = "oxAuthLogoutSessionRequired")
@@ -160,6 +163,12 @@ public class OxAuthClient extends Entry implements Serializable {
 
     @LdapAttribute(name = "oxPersistClientAuthorizations")
     private GluuBoolean oxAuthPersistClientAuthorizations = GluuBoolean.TRUE;
+
+    @LdapAttribute(name = "oxIncludeClaimsInIdToken")
+    private GluuBoolean oxIncludeClaimsInIdToken = GluuBoolean.FALSE;
+
+    @LdapAttribute(name = "oxRefreshTokenLifetime")
+    private Integer oxRefreshTokenLifetime;
 
     @LdapAttribute(name = "oxAuthDefaultAcrValues")
     private String[] defaultAcrValues;
@@ -173,6 +182,9 @@ public class OxAuthClient extends Entry implements Serializable {
     @LdapAttribute(name = "oxAuthRequestURI")
     private String[] requestUris;
 
+    @LdapAttribute(name = "oxDisabled")
+    private boolean disabled;
+
     private String oxAuthClientSecret;
 
     public boolean isSelected() {
@@ -182,6 +194,14 @@ public class OxAuthClient extends Entry implements Serializable {
     public void setSelected(boolean selected) {
         this.selected = selected;
     }
+    
+    public String[] getClaimRedirectURI() {
+		return claimRedirectURI;
+	}
+
+	public void setClaimRedirectURI(String[] claimRedirectURI) {
+		this.claimRedirectURI = claimRedirectURI;
+	}
 
     public String getInum() {
         return inum;
@@ -495,6 +515,22 @@ public class OxAuthClient extends Entry implements Serializable {
         this.oxAuthPersistClientAuthorizations = oxAuthPersistClientAuthorizations;
     }
 
+    public GluuBoolean getOxIncludeClaimsInIdToken() {
+        return oxIncludeClaimsInIdToken;
+    }
+
+    public void setOxIncludeClaimsInIdToken(GluuBoolean oxIncludeClaimsInIdToken) {
+        this.oxIncludeClaimsInIdToken = oxIncludeClaimsInIdToken;
+    }
+
+    public Integer getOxRefreshTokenLifetime() {
+        return oxRefreshTokenLifetime;
+    }
+
+    public void setOxRefreshTokenLifetime(Integer oxRefreshTokenLifetime) {
+        this.oxRefreshTokenLifetime = oxRefreshTokenLifetime;
+    }
+
     public String[] getDefaultAcrValues() {
         return defaultAcrValues;
     }
@@ -519,10 +555,19 @@ public class OxAuthClient extends Entry implements Serializable {
         this.requestUris = requestUris;
     }
 
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    public void setDisabled(boolean disabled) {
+        this.disabled = disabled;
+    }
+
     public void setOxAuthClientSecret(String oxAuthClientSecret) throws EncryptionException {
         this.oxAuthClientSecret = oxAuthClientSecret;
         if (StringHelper.isNotEmpty(oxAuthClientSecret)) {
-            setEncodedClientSecret(StringEncrypter.defaultInstance().encrypt(oxAuthClientSecret, OxTrustConfiguration.instance().getCryptoConfigurationSalt()));
+        	EncryptionService encryptionService = CdiUtil.bean(EncryptionService.class);
+            setEncodedClientSecret(encryptionService.encrypt(oxAuthClientSecret));
         }
     }
 

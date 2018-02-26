@@ -11,22 +11,22 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 
+import javax.annotation.PreDestroy;
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import org.apache.commons.io.IOUtils;
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.AttributeService;
 import org.gluu.oxtrust.ldap.service.LdifService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.Destroy;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.faces.FacesMessages;
-import org.jboss.seam.international.StatusMessage.Severity;
-import org.jboss.seam.log.Log;
 import org.richfaces.event.FileUploadEvent;
 import org.richfaces.model.UploadedFile;
+import org.slf4j.Logger;
+import org.xdi.service.security.Secure;
 
 import com.unboundid.ldap.sdk.LDAPException;
 import com.unboundid.ldap.sdk.ResultCode;
@@ -37,24 +37,27 @@ import com.unboundid.ldap.sdk.ResultCode;
  * @author Shekhar L Date: 02.28.2017
  * @author Yuriy Movchan Date: 03/06/2017
  */
-@Name("attributeImportAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@Named("attributeImportAction")
+@ConversationScoped
+@Secure("#{permissionService.hasPermission('attribute', 'access')}")
 public class AttributeImportAction implements Serializable {
 
 	private static final long serialVersionUID = 8755036208872218664L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 	
-	@In
+	@Inject
 	private LdifService ldifService;
 	
-	@In
+	@Inject
 	private AttributeService attributeService;
 
-	@In
+	@Inject
 	private FacesMessages facesMessages;
+
+	@Inject
+	private ConversationService conversationService;
 
 	private UploadedFile uploadedFile;
 	private FileDataToImport fileDataToImport;
@@ -75,6 +78,7 @@ public class AttributeImportAction implements Serializable {
 
 	public String importAttributes() throws Exception {
 		if (!fileDataToImport.isReady()) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "File to import is invalid");
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
@@ -83,7 +87,7 @@ public class AttributeImportAction implements Serializable {
 		try {
 			result = ldifService.importLdifFileInLdap(is);
 		} catch (LDAPException ex) {
-			facesMessages.add(Severity.ERROR, "Failed to import LDIF file");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to import LDIF file");
 		} finally {
 			IOUtils.closeQuietly(is);
 		}
@@ -91,10 +95,10 @@ public class AttributeImportAction implements Serializable {
 		removeFileToImport();
 
 		if ((result != null) && result.equals(ResultCode.SUCCESS)) {
-			facesMessages.add(Severity.INFO,"Attributes added successfully");
+			facesMessages.add(FacesMessage.SEVERITY_INFO,"Attributes added successfully");
 			return OxTrustConstants.RESULT_SUCCESS;
 		} else {
-			facesMessages.add(Severity.ERROR, "Failed to import LDIF file");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to import LDIF file");
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 	}
@@ -112,7 +116,7 @@ public class AttributeImportAction implements Serializable {
 		try {
 			result = ldifService.validateLdifFile(is, dn);
 		} catch (LDAPException ex) {
-			facesMessages.add(Severity.ERROR, "Failed to parse LDIF file");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to parse LDIF file");
 		} finally {
 			IOUtils.closeQuietly(is);
 		}
@@ -123,15 +127,19 @@ public class AttributeImportAction implements Serializable {
 		} else {
 			removeFileDataToImport();
 			this.fileDataToImport.setReady(false);
-			facesMessages.add(Severity.ERROR, "Invalid LDIF File. Validation failed");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Invalid LDIF File. Validation failed");
 		}
 	}
 
-	public void cancel() {
+	public String cancel() {
 		destroy();
+
+		conversationService.endConversation();
+
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Destroy
+	@PreDestroy
 	public void destroy() {
 		removeFileDataToImport();
 		removeFileToImport();

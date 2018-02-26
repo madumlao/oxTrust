@@ -9,20 +9,20 @@ package org.gluu.oxtrust.action;
 import java.io.Serializable;
 import java.util.List;
 
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.IGroupService;
 import org.gluu.oxtrust.model.GluuGroup;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.international.StatusMessages;
-import org.jboss.seam.log.Log;
+import org.slf4j.Logger;
+import org.xdi.service.security.Secure;
 import org.xdi.util.Util;
 
 /**
@@ -30,18 +30,21 @@ import org.xdi.util.Util;
  * 
  * @author Yuriy Movchan Date: 11.02.2010
  */
-@Name("searchGroupAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@Named
+@ConversationScoped
+@Secure("#{permissionService.hasPermission('group', 'access')}")
 public class SearchGroupAction implements Serializable {
 
 	private static final long serialVersionUID = -5270460481895022468L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In
-	StatusMessages statusMessages;
+	@Inject
+	private FacesMessages facesMessages;
+
+	@Inject
+	private ConversationService conversationService;
 
 	@NotNull
 	@Size(min = 0, max = 30, message = "Length of search string should be between 0 and 30")
@@ -51,31 +54,33 @@ public class SearchGroupAction implements Serializable {
 
 	private List<GluuGroup> groupList;
 
-	@In
+	@Inject
 	private IGroupService groupService;
 
-	@Restrict("#{s:hasPermission('group', 'access')}")
 	public String start() {
 		return search();
 	}
 
-	@Restrict("#{s:hasPermission('group', 'access')}")
 	public String search() {
 		if ((this.searchPattern != null) && Util.equals(this.oldSearchPattern, this.searchPattern)) {
 			return OxTrustConstants.RESULT_SUCCESS;
 		}
 
 		try {
-			if(searchPattern == null || searchPattern.isEmpty()){
+			if (searchPattern == null || searchPattern.isEmpty()) {
 				this.groupList = groupService.getAllGroups(OxTrustConstants.searchGroupSizeLimit);
-			}else{
+			} else {
 				this.groupList = groupService.searchGroups(this.searchPattern, OxTrustConstants.searchGroupSizeLimit);
 			}
 			
-			log.debug("Found \"" + this.groupList.size() + "\" groups.");
+			log.debug("Found '{}' groups.", this.groupList.size());
 			this.oldSearchPattern = this.searchPattern;
 		} catch (Exception ex) {
 			log.error("Failed to find groups", ex);
+
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to find groups");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 

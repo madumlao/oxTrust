@@ -8,24 +8,35 @@ package org.gluu.oxtrust.action;
 
 import java.io.Serializable;
 
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.End;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
+import javax.ejb.Stateless;
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.gluu.jsf2.service.ConversationService;
+import org.gluu.jsf2.service.FacesService;
 
 /**
  * Action class for helping with menu
  * 
  * @author Yuriy Movchan Date: 12/18/2012
  */
-@Scope(ScopeType.STATELESS)
-@Name("menuAction")
+@Stateless
+@Named
 public class MenuAction implements Serializable {
 
 	private static final long serialVersionUID = -172441515451149801L;
+	
+	@Inject
+	private ConversationService conversationService;
 
-	@End(beforeRedirect = true)
+	@Inject
+	private FacesService facesService;
+
 	public String endConversation(final String viewId) {
+		conversationService.endConversation();
+
+		facesService.redirect(viewId + "?faces-redirect=true");
+
 		return viewId;
 	}
 }

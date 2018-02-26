@@ -11,8 +11,8 @@ import java.util.Map;
 import org.gluu.oxtrust.model.GluuCustomAttribute;
 import org.gluu.oxtrust.model.GluuCustomPerson;
 import org.gluu.oxtrust.model.User;
-import org.gluu.site.ldap.exception.DuplicateEntryException;
-import org.gluu.site.ldap.persistence.AttributeData;
+import org.gluu.persist.exception.operation.DuplicateEntryException;
+import org.gluu.persist.model.AttributeData;
 
 public interface IPersonService {
 
@@ -171,11 +171,7 @@ public interface IPersonService {
 
 	public abstract List<GluuCustomAttribute> getMandatoryAtributes();
 
-	public abstract String getPersonString(List<GluuCustomPerson> persons) throws Exception;
-
 	public abstract List<GluuCustomPerson> createEntities(Map<String, List<AttributeData>> entriesAttributes) throws Exception;
-
-	public abstract boolean isMemberOrOwner(String[] groupDNs, String personDN) throws Exception;
 
 	/**
 	 * Get person by email
@@ -216,5 +212,11 @@ public interface IPersonService {
 	 * @return List <Person>
 	 */
 	public List<GluuCustomPerson> getPersonsByAttribute(String attribute, String value) throws Exception;
+
+	List<GluuCustomPerson> findPersonsByMailids(List<String> mailids, String[] returnAttributes) throws Exception;
+
+	String getPersonUids(List<GluuCustomPerson> persons) throws Exception;
+
+	String getPersonMailids(List<GluuCustomPerson> persons) throws Exception;
 	
 }

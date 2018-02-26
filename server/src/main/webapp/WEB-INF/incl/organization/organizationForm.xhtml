@@ -1,14 +1,13 @@
 <!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <ui:composition xmlns="http://www.w3.org/1999/xhtml"
-	xmlns:s="http://jboss.org/schema/seam/taglib"
-	xmlns:ui="http://java.sun.com/jsf/facelets"
-	xmlns:f="http://java.sun.com/jsf/core"
-	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+	xmlns:f="http://xmlns.jcp.org/jsf/core"
+	xmlns:h="http://xmlns.jcp.org/jsf/html"
 	xmlns:a4j="http://richfaces.org/a4j"
 	xmlns:rich="http://richfaces.org/rich"
-	xmlns:richext="http://java.sun.com/jsf/composite/richext"
-	xmlns:ox="http://java.sun.com/jsf/composite/ox"
+	xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
+	xmlns:ox="http://xmlns.jcp.org/jsf/composite/ox"
 	xmlns:gluufn="http://www.gluu.org/jsf/functions">
 
 	<h:outputStylesheet>
@@ -50,7 +49,6 @@
 		href="#{oxTrustConfigurationService.cssLocation}/colorpicker.css" />
 
 
-
 	<h:outputScript>
 	
 	function loadColorPicker(){
@@ -80,147 +78,126 @@
 	addToBodyOnload(loadColorPicker);
     </h:outputScript>
 
-	<ox:changePasswordDialog id="appliancePassword"
-		label="Change Appliance Password"
-		password="#{appliancePasswordAction.newPassword}"
-		setPasswordMethod="#{appliancePasswordAction.update}" />
-
 	<h:form id="organizationForm">
-		<!-- Workaround. TODO: Remove after upgrade to SEAM 2.3.1 -->
-		<input type='hidden' name='cid' value='#{conversation.id}' />
-
 		<div class="row">
 			<div class="col-xs-12">
 				<div class="nav-tabs-custom" style="margin-bottom: 0px;">
 					<ul class="nav nav-tabs">
-						<li class="active"><a href="#sys-config" data-toggle="tab">System
-								Configuration</a></li>
-						<li><a href="#smtp-server" data-toggle="tab">SMTP Server
-								Configuration</a></li>
-						<li><a href="#ox-trust" data-toggle="tab">OxTrust
-								Settings</a></li>
+						<li class="active"><a href="#sys-config" data-toggle="tab">#{msg['organizationForm.systemConfiguration']}</a></li>
+						<li><a href="#smtp-server" data-toggle="tab">#{msg['organizationForm.smtpServerConfiguration']}</a></li>
+						<li><a href="#ox-trust" data-toggle="tab">#{msg['organizationForm.oxTrustSettings']}</a></li>
+						<li><a href="#ox-auth" data-toggle="tab">#{msg['organizationForm.oxAuthSettings']}</a></li>
 					</ul>
 					<div class="tab-content">
 						<!-- System Configuration -->
 						<div class="tab-pane active" id="sys-config">
 							<h:panelGroup layout="block" style="width:80%;">
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="passwordReset">
-									<ui:define name="label">Self-Service Password Reset</ui:define>
+								<ox:decorate
+									id="passwordReset" label="#{msg['organizationForm.selfServicePasswordReset']}">
 									<h:selectOneMenu value="#{_appliance.passwordResetAllowed}" styleClass="form-control"
 										id="passwordResetId">
-										<s:selectItems
+										<f:selectItems
 											value="#{organizationService.booleanSelectionTypes}"
-											var="_type" label="#{_type.displayName}" />
-										<s:convertEnum />
+											var="_type" itemLabel="#{_type.displayName}" />
+										<f:converter converterId="org.gluu.jsf2.converter.EnumConverter"/>
 									</h:selectOneMenu>
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="scimEnabledState">
-									<ui:define name="label">SCIM Support</ui:define>
+								<ox:decorate
+									id="scimEnabledState" label="#{msg['organizationForm.scimSupport']}">
 									<h:selectOneMenu value="#{_appliance.scimEnabled}" styleClass="form-control"
 										id="scimEnabledStateId">
-										<s:selectItems
+										<f:selectItems
 											value="#{organizationService.booleanSelectionTypes}"
-											var="_type" label="#{_type.displayName}" />
-										<s:convertEnum />
+											var="_type" itemLabel="#{_type.displayName}" />
+										<f:converter converterId="org.gluu.jsf2.converter.EnumConverter"/>
 									</h:selectOneMenu>
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="passportEnabledState">
-									<ui:define name="label">Passport Support</ui:define>
+								<ox:decorate
+									id="passportEnabledState" label="#{msg['organizationForm.passportSupport']}">
 									<h:selectOneMenu value="#{_appliance.passportEnabled}" styleClass="form-control"
 										id="passportEnabledStateId">
-										<s:selectItems
+										<f:selectItems
 											value="#{organizationService.booleanSelectionTypes}"
-											var="_type" label="#{_type.displayName}" />
-										<s:convertEnum />
+											var="_type" itemLabel="#{_type.displayName}" />
+										<f:converter converterId="org.gluu.jsf2.converter.EnumConverter"/>
 									</h:selectOneMenu>
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="dnsServer">
-									<ui:define name="label">DNS Server(s)</ui:define>
+								<ox:decorate
+									id="dnsServer" label="#{msg['organizationForm.dnsServer']} 222">
 									<h:inputText styleClass="form-control"
 										title="Multiple addresses can be specified using comma (,)"
 										value="#{_appliance.applianceDnsServer}" size="100" />
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="maxLogSize">
-									<ui:define name="label">Maximum Log Size (MB)</ui:define>
+								<ox:decorate
+									id="maxLogSize" label="#{msg['organizationForm.maxLogSize']}">
 									<h:inputText value="#{_appliance.maxLogSize}" required="true" styleClass="form-control"
 										size="10" />
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="profileManagment">
-									<ui:define name="label">User Can Edit Own Profile</ui:define>
+								<ox:decorate
+									id="profileManagment" label="#{msg['organizationForm.userCanEditProfile']}">
 									<h:selectOneMenu value="#{_appliance.profileManagment}" styleClass="form-control"
 										id="profileManagmentStateId">
-										<s:selectItems
+										<f:selectItems
 											value="#{organizationService.booleanSelectionTypes}"
-											var="_type" label="#{_type.displayName}" />
-										<s:convertEnum />
+											var="_type" itemLabel="#{_type.displayName}" />
+										<f:converter converterId="org.gluu.jsf2.converter.EnumConverter"/>
 									</h:selectOneMenu>
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">Contact Email</ui:define>
+								<ox:decorate label="#{msg['organizationForm.contactEmail']}">
 									<h:inputText value="#{_appliance.contactEmail}" styleClass="form-control"/>
-								</s:decorate>
+								</ox:decorate>
 
 							</h:panelGroup>
 						</div>
 						<div class="tab-pane" id="smtp-server">
 							<h:panelGroup layout="block" style="width:80%;">
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">SMTP Host</ui:define>
-									<h:inputText value="#{_appliance.smtpHost}" styleClass="form-control"/>
-								</s:decorate>
+								<ox:decorate label="#{msg['organizationForm.smtpHost']}">
+									<h:inputText value="#{_smtp.host}" styleClass="form-control"/>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">From Name</ui:define>
-									<h:inputText value="#{_appliance.smtpFromName}" styleClass="form-control"/>
-								</s:decorate>
+								<ox:decorate label="#{msg['organizationForm.fromName']}">
+									<h:inputText value="#{_smtp.fromName}" styleClass="form-control"/>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">From Email Address</ui:define>
-									<h:inputText value="#{_appliance.smtpFromEmailAddress}" styleClass="form-control"/>
-								</s:decorate>
+								<ox:decorate label="#{msg['organizationForm.fromEmailAddress']}">
+									<h:inputText value="#{_smtp.fromEmailAddress}" styleClass="form-control"/>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">Requires Authentication</ui:define>
+								<ox:decorate label="#{msg['organizationForm.requiresAuthentication']}">
 									<h:selectBooleanCheckbox styleClass="form-control"
-										value="#{_appliance.requiresAuthentication}" />
-								</s:decorate>
+										value="#{_smtp.requiresAuthentication}" />
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">SMTP User Name</ui:define>
-									<h:inputText value="#{_appliance.smtpUserName}" styleClass="form-control"/>
-								</s:decorate>
+								<ox:decorate label="#{msg['organizationForm.smtpUserName']}">
+									<h:inputText value="#{_smtp.userName}" styleClass="form-control"/>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">SMTP Password</ui:define>
-									<h:inputSecret value="#{_appliance.smtpPasswordStr}" styleClass="form-control"
+								<ox:decorate label="#{msg['organizationForm.smtpPassword']}">
+									<h:inputSecret value="#{_smtp.passwordDecrypted}" styleClass="form-control"
 										redisplay="true" />
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">Requires SSL</ui:define>
-									<h:selectBooleanCheckbox value="#{_appliance.requiresSsl}" styleClass="form-control"/>
-								</s:decorate>
+								<ox:decorate label="#{msg['organizationForm.requiresSSL']}">
+									<h:selectBooleanCheckbox value="#{_smtp.requiresSsl}" styleClass="form-control"/>
+								</ox:decorate>
+								
+								<ox:decorate label="#{msg['organizationForm.trustserver']}">
+									<h:selectBooleanCheckbox value="#{_smtp.serverTrust}" styleClass="form-control"/>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">SMTP Port</ui:define>
-									<h:inputText value="#{_appliance.smtpPort}" styleClass="form-control"/>
-								</s:decorate>
-								<h:commandButton value="Test Configuration" styleClass="btn btn-success"
-									action="#{updateOrganizationAction.verifySmtpConfiguration}" />
+								<ox:decorate label="#{msg['organizationForm.smtpPort']}">
+									<h:inputText value="#{_smtp.port}" styleClass="form-control"/>
+								</ox:decorate>
+								<h:commandButton value="#{msg['organizationForm.testConfiguration']}" styleClass="btn btn-success"
+									action="#{updateOrganizationAction.verifySmtpConfiguration}"/>
 
 							</h:panelGroup>
 						</div>
@@ -228,91 +205,84 @@
 						<div class="tab-pane" id="ox-trust">
 							<h:panelGroup layout="block" style="overflow-y:auto;overflow-x:hidden;">
 								<!-- 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="inum">
-									<ui:define name="label">Inum</ui:define>
+								<ox:decorate id="inum" label="Inum">
 									<h:outputText value="#{_organization.inum}" />
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="iname">
-									<ui:define name="label">Iname</ui:define>
+								<ox:decorate
+									id="iname" label="Iname">
 									<h:outputText value="#{_organization.iname}" />
-								</s:decorate>
+								</ox:decorate>
  -->
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="buildDate">
-									<ui:define name="label">Build Date</ui:define>
+								<ox:decorate
+									id="buildDate" label="#{msg['organizationForm.buildDate']}">
 									<h:outputText value="#{_organizationAction.buildDate}" />
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="buildNumber">
-									<ui:define name="label">Build Number</ui:define>
+								<ox:decorate
+									id="buildNumber" label="#{msg['organizationForm.buildNumber']}">
 									<h:outputText value="#{_organizationAction.buildNumber}" />
-								</s:decorate>
+								</ox:decorate>
 
-<!-- 								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" -->
+<!-- 								<ox:decorate -->
 <!-- 									id="title"> -->
-<!-- 									<ui:define name="label">Organization Title</ui:define> -->
+<!-- 									label="Organization Title"> -->
 <!-- 									<h:inputText value="#{_organization.title}" size="100" styleClass="form-control"/> -->
-<!-- 								</s:decorate> -->
+<!-- 								</ox:decorate> -->
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="displayName">
-									<ui:define name="label">Organization name </ui:define>
+								<ox:decorate
+									id="displayName" label="#{msg['organizationForm.organizationName']}">
 									<h:inputText value="#{_organization.displayName}" size="100" styleClass="form-control" style="width:80%;"/>
-								</s:decorate>
+								</ox:decorate>
 
-<!-- 								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" -->
+<!-- 								<ox:decorate -->
 <!-- 									id="shortName"> -->
-<!-- 									<ui:define name="label">Organization Short name</ui:define> -->
+<!-- 									label="Organization Short name"> -->
 <!-- 									<h:inputText value="#{_organization.shortName}" size="100" styleClass="form-control"/> -->
-<!-- 								</s:decorate> -->
+<!-- 								</ox:decorate> -->
 
-<!-- 								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" -->
+<!-- 								<ox:decorate -->
 <!-- 									id="description"> -->
-<!-- 									<ui:define name="label">Description</ui:define> -->
+<!-- 									label="Description"> -->
 <!-- 									<h:inputTextarea value="#{_organization.description}" -->
 <!-- 										cols="100" rows="3" /> -->
-<!-- 								</s:decorate> -->
+<!-- 								</ox:decorate> -->
 
-<!-- 								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" -->
+<!-- 								<ox:decorate -->
 <!-- 									id="loginPageCustomMessage"> -->
-<!-- 									<ui:define name="label">Login page message</ui:define> -->
+<!-- 									label="Login page message"> -->
 <!-- 									<h:inputTextarea -->
 <!-- 										value="#{_organizationAction.loginPageCustomMessage}" -->
 <!-- 										cols="100" rows="3" /> -->
-<!-- 								</s:decorate> -->
+<!-- 								</ox:decorate> -->
 
-<!-- 								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" -->
+<!-- 								<ox:decorate -->
 <!-- 									id="welcomeTitleText"> -->
-<!-- 									<ui:define name="label">Welcome Title Text</ui:define> -->
+<!-- 									label="Welcome Title Text"> -->
 <!-- 									<h:inputTextarea -->
 <!-- 										value="#{_organizationAction.welcomeTitleText}" cols="100" -->
 <!-- 										rows="3" /> -->
-<!-- 								</s:decorate> -->
+<!-- 								</ox:decorate> -->
 
-<!-- 								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" -->
+<!-- 								<ox:decorate -->
 <!-- 									id="welcomePageCustomMessage"> -->
-<!-- 									<ui:define name="label">Welcome Page Message</ui:define> -->
+<!-- 									label="Welcome Page Message"> -->
 <!-- 									<h:inputTextarea -->
 <!-- 										value="#{_organizationAction.welcomePageCustomMessage}" -->
 <!-- 										cols="100" rows="3" /> -->
-<!-- 								</s:decorate> -->
+<!-- 								</ox:decorate> -->
 								
 								<ui:param name="_managerGroup"
 									value="#{gluufn:getDisplayNameEntry(_organization.managerGroup)}" />
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-									id="managerGroup">
-									<ui:define name="label">Manager group</ui:define>
-									<s:link view="/group/updateGroup.xhtml"
-										value="#{_managerGroup.displayName}" propagation="none">
+								<ox:decorate
+									id="managerGroup" label="#{msg['organizationForm.managerGroup']}">
+									<h:link includeViewParams="false" outcome="/group/updateGroup"
+										value="#{_managerGroup.displayName}">
 										<f:param name="inum" value="#{_managerGroup.inum}" />
-									</s:link>
-								</s:decorate>
+									</h:link>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">Organization Logo</ui:define>
+								<ox:decorate label="#{msg['organizationForm.organizationLogo']}">
 									<h:panelGroup id="custLogoImagePanelId" columns="1" width="100%"
 										border="0" cellpadding="0" cellspacing="0">
 										<rich:fileUpload id="custUploadId"
@@ -330,9 +300,8 @@
 											cellpadding="0" border="0" columnClasses="alignCenter"
 											rendered="#{_organization.logoImage ne null}">
 											<h:panelGroup layout="block">
-												<s:graphicImage
-													value="#{_organizationAction.logoImageThumbData}"
-													fileName="#{_organizationAction.logoImageSourceName}" />
+												<img
+													src="#{request.contextPath}/servlet/logo?preview=true" />
 											</h:panelGroup>
 											<richext:spacer height="8" />
 											<a4j:commandLink value="Remove"
@@ -341,10 +310,9 @@
 												eventsQueue="organizationQueue" />
 										</h:panelGrid>
 									</h:panelGroup>
-								</s:decorate>
+								</ox:decorate>
 
-								<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-									<ui:define name="label">Organization Favicon</ui:define>
+								<ox:decorate label="Organization Favicon">
 									<h:panelGrid id="custFaviconImagePanelId" columns="1"
 										width="100%" border="0" cellpadding="0" cellspacing="0">
 										<rich:fileUpload id="custFaviconUploadId"
@@ -372,10 +340,10 @@
 												limitRender="true" eventsQueue="organizationQueue" />
 										</h:panelGrid>
 									</h:panelGrid>
-								</s:decorate>
+								</ox:decorate>
 
-								<!-- 				<s:decorate template="/WEB-INF/incl/layout/view.xhtml"> -->
-								<!-- 					<ui:define name="label">Menu Color</ui:define> -->
+								<!-- 				<ox:decorate template="/WEB-INF/incl/layout/view.xhtml"> -->
+								<!-- 					label="Menu Color"> -->
 								<!-- 					<h:panelGrid id="custThemeColorPanelId" columns="1" width="100%" -->
 								<!-- 						cellspacing="0" cellpadding="0" border="0" -->
 								<!-- 						columnClasses="alignCenter"> -->
@@ -387,7 +355,17 @@
 								<!-- 							action="#{_organizationAction.removeThemeColor()}" -->
 								<!-- 							render="custThemeColorPanelId" limitRender="true" /> -->
 								<!-- 					</h:panelGrid> -->
-								<!-- 				</s:decorate> -->
+								<!-- 				</ox:decorate> -->
+
+							</h:panelGroup>
+						</div>
+						
+						<div class="tab-pane" id="ox-auth">
+							<h:panelGroup layout="block" style="width:80%;">
+
+								<ox:decorate label="#{msg['organizationForm.serverip']}">
+									<h:inputText value="#{_webKeySettings.serverIP}" styleClass="form-control"/>
+								</ox:decorate>
 
 							</h:panelGroup>
 						</div>

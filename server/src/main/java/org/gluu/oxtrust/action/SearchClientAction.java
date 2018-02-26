@@ -7,22 +7,25 @@
 package org.gluu.oxtrust.action;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.ClientService;
 import org.gluu.oxtrust.model.OxAuthClient;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.international.StatusMessages;
-import org.jboss.seam.log.Log;
+import org.slf4j.Logger;
+import org.xdi.service.security.Secure;
 import org.xdi.util.Util;
 
 /**
@@ -30,18 +33,21 @@ import org.xdi.util.Util;
  * 
  * @author Reda Zerrad Date: 06.11.2012
  */
-@Name("searchClientAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@Named
+@ConversationScoped
+@Secure("#{permissionService.hasPermission('client', 'access')}")
 public class SearchClientAction implements Serializable {
 
 	private static final long serialVersionUID = 8361095046179474395L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In
-	StatusMessages statusMessages;
+	@Inject
+	private FacesMessages facesMessages;
+
+	@Inject
+	private ConversationService conversationService;
 
 	@NotNull
 	@Size(min = 0, max = 30, message = "Length of search string should be less than 30")
@@ -50,16 +56,19 @@ public class SearchClientAction implements Serializable {
 	private String oldSearchPattern;
 
 	private List<OxAuthClient> clientList;
+	
+	private Map<OxAuthClient,Boolean> checkMap = new HashMap<OxAuthClient,Boolean>();
+	public Map<OxAuthClient, Boolean> getCheckMap() {
+		return checkMap;
+	}
 
-	@In
+	@Inject
 	private ClientService clientService;
 
-	@Restrict("#{s:hasPermission('client', 'access')}")
 	public String start() {
 		return search();
 	}
 
-	@Restrict("#{s:hasPermission('client', 'access')}")
 	public String search() {
 		if (Util.equals(this.oldSearchPattern, this.searchPattern)) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -75,6 +84,10 @@ public class SearchClientAction implements Serializable {
 			this.oldSearchPattern = this.searchPattern;
 		} catch (Exception ex) {
 			log.error("Failed to find clients", ex);
+
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to find clients");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
@@ -93,4 +106,16 @@ public class SearchClientAction implements Serializable {
 		return clientList;
 	}
 
+	public String deleteClients() {
+		for(Entry<OxAuthClient,Boolean> entry : checkMap.entrySet()){
+			if (entry.getValue()) {
+				log.info( "result +  "+ entry.getKey());
+				clientService.removeClient(entry.getKey());
+				clientList.remove(entry.getKey());
+			}			
+		}
+		checkMap.clear();
+		
+		return OxTrustConstants.RESULT_SUCCESS;
+	}
 }

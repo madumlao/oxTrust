@@ -8,13 +8,10 @@ package org.gluu.oxtrust.service.external;
 
 import java.util.Map;
 
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Named;
+
 import org.gluu.oxtrust.model.GluuCustomPerson;
-import org.jboss.seam.Component;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.AutoCreate;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.Startup;
 import org.xdi.model.SimpleCustomProperty;
 import org.xdi.model.custom.script.CustomScriptType;
 import org.xdi.model.custom.script.conf.CustomScriptConfiguration;
@@ -26,16 +23,69 @@ import org.xdi.service.custom.script.ExternalScriptService;
  *
  * @author Yuriy Movchan Date: 01/08/2015
  */
-@Scope(ScopeType.APPLICATION)
-@Name("externalUpdateUserService")
-@AutoCreate
-@Startup
+@ApplicationScoped
+@Named
 public class ExternalUpdateUserService extends ExternalScriptService {
 
 	private static final long serialVersionUID = 1416361273036208685L;
 
 	public ExternalUpdateUserService() {
 		super(CustomScriptType.UPDATE_USER);
+	}
+	
+	public boolean executeExternalAddUserMethod(CustomScriptConfiguration customScriptConfiguration, GluuCustomPerson user, boolean persisted) {
+		try {
+			log.debug("Executing python 'addUser' method");
+			UpdateUserType externalType = (UpdateUserType) customScriptConfiguration.getExternalType();
+			Map<String, SimpleCustomProperty> configurationAttributes = customScriptConfiguration.getConfigurationAttributes();
+			return externalType.addUser(user, persisted, configurationAttributes);
+		} catch (Exception ex) {
+			log.error(ex.getMessage(), ex);
+		}
+		
+		return false;
+	}
+
+	public boolean executeExternalAddUserMethods(GluuCustomPerson user) {
+		boolean result = true;
+		for (CustomScriptConfiguration customScriptConfiguration : this.customScriptConfigurations) {
+			result &= executeExternalAddUserMethod(customScriptConfiguration, user, true);
+			if (!result) {
+				return result;
+			}
+		}
+
+		return result;
+	}
+	
+	public boolean executeExternalPostAddUserMethod(CustomScriptConfiguration customScriptConfiguration, GluuCustomPerson user) {
+        int apiVersion = executeExternalGetApiVersion(customScriptConfiguration);
+        if (apiVersion < 2) {
+        	return true;
+        }
+
+		try {
+			log.debug("Executing python 'postAddUser' method");
+			UpdateUserType externalType = (UpdateUserType) customScriptConfiguration.getExternalType();
+			Map<String, SimpleCustomProperty> configurationAttributes = customScriptConfiguration.getConfigurationAttributes();
+			return externalType.postAddUser(user, configurationAttributes);
+		} catch (Exception ex) {
+			log.error(ex.getMessage(), ex);
+		}
+		
+		return false;
+	}
+
+	public boolean executeExternalPostAddUserMethods(GluuCustomPerson user) {
+		boolean result = true;
+		for (CustomScriptConfiguration customScriptConfiguration : this.customScriptConfigurations) {
+			result &= executeExternalPostAddUserMethod(customScriptConfiguration, user);
+			if (!result) {
+				return result;
+			}
+		}
+
+		return result;
 	}
 
 	public boolean executeExternalUpdateUserMethod(CustomScriptConfiguration customScriptConfiguration, GluuCustomPerson user, boolean persisted) {
@@ -51,18 +101,6 @@ public class ExternalUpdateUserService extends ExternalScriptService {
 		return false;
 	}
 
-	public boolean executeExternalAddUserMethods(GluuCustomPerson user) {
-		boolean result = true;
-		for (CustomScriptConfiguration customScriptConfiguration : this.customScriptConfigurations) {
-			result &= executeExternalUpdateUserMethod(customScriptConfiguration, user, false);
-			if (!result) {
-				return result;
-			}
-		}
-
-		return result;
-	}
-
 	public boolean executeExternalUpdateUserMethods(GluuCustomPerson user) {
 		boolean result = true;
 		for (CustomScriptConfiguration customScriptConfiguration : this.customScriptConfigurations) {
@@ -75,8 +113,126 @@ public class ExternalUpdateUserService extends ExternalScriptService {
 		return result;
 	}
 
-    public static ExternalUpdateUserService instance() {
-        return (ExternalUpdateUserService) Component.getInstance(ExternalUpdateUserService.class);
-    }
+	public boolean executeExternalPostUpdateUserMethod(CustomScriptConfiguration customScriptConfiguration, GluuCustomPerson user) {
+        int apiVersion = executeExternalGetApiVersion(customScriptConfiguration);
+        if (apiVersion < 2) {
+        	return true;
+        }
+
+		try {
+			log.debug("Executing python 'postUpdateUser' method");
+			UpdateUserType externalType = (UpdateUserType) customScriptConfiguration.getExternalType();
+			Map<String, SimpleCustomProperty> configurationAttributes = customScriptConfiguration.getConfigurationAttributes();
+			return externalType.postUpdateUser(user, configurationAttributes);
+		} catch (Exception ex) {
+			log.error(ex.getMessage(), ex);
+		}
+		
+		return false;
+	}
+
+	public boolean executeExternalPostUpdateUserMethods(GluuCustomPerson user) {
+		boolean result = true;
+		for (CustomScriptConfiguration customScriptConfiguration : this.customScriptConfigurations) {
+			result &= executeExternalPostUpdateUserMethod(customScriptConfiguration, user);
+			if (!result) {
+				return result;
+			}
+		}
+
+		return result;
+	}
+	
+	public boolean executeExternalNewUserMethod(CustomScriptConfiguration customScriptConfiguration, GluuCustomPerson user) {
+		try {
+			log.debug("Executing python 'newUser' method");
+			UpdateUserType externalType = (UpdateUserType) customScriptConfiguration.getExternalType();
+			Map<String, SimpleCustomProperty> configurationAttributes = customScriptConfiguration.getConfigurationAttributes();
+			return externalType.newUser(user, configurationAttributes);
+		} catch (Exception ex) {
+			log.error(ex.getMessage(), ex);
+		}
+		
+		return false;
+	}
+
+	public boolean executeExternalNewUserMethods(GluuCustomPerson user) {
+		boolean result = true;
+		for (CustomScriptConfiguration customScriptConfiguration : this.customScriptConfigurations) {
+			result &= executeExternalNewUserMethod(customScriptConfiguration, user);
+			if (!result) {
+				return result;
+			}
+		}
+
+		return result;
+	}
+
+	public boolean executeExternalDeleteUserMethod(CustomScriptConfiguration customScriptConfiguration, GluuCustomPerson user, boolean persisted) {
+		try {
+			log.debug("Executing python 'addUser' method");
+			UpdateUserType externalType = (UpdateUserType) customScriptConfiguration.getExternalType();
+			Map<String, SimpleCustomProperty> configurationAttributes = customScriptConfiguration.getConfigurationAttributes();
+			return externalType.deleteUser(user, persisted, configurationAttributes);
+		} catch (Exception ex) {
+			log.error(ex.getMessage(), ex);
+		}
+		
+		return false;
+	}
+
+	public boolean executeExternalDeleteUserMethods(GluuCustomPerson user) {
+		boolean result = true;
+		for (CustomScriptConfiguration customScriptConfiguration : this.customScriptConfigurations) {
+			result &= executeExternalDeleteUserMethod(customScriptConfiguration, user, true);
+			if (!result) {
+				return result;
+			}
+		}
+
+		return result;
+	}
+
+	public boolean executeExternalPostDeleteUserMethod(CustomScriptConfiguration customScriptConfiguration, GluuCustomPerson user) {
+        int apiVersion = executeExternalGetApiVersion(customScriptConfiguration);
+        if (apiVersion < 2) {
+        	return true;
+        }
+
+        try {
+			log.debug("Executing python 'postAddUser' method");
+			UpdateUserType externalType = (UpdateUserType) customScriptConfiguration.getExternalType();
+			Map<String, SimpleCustomProperty> configurationAttributes = customScriptConfiguration.getConfigurationAttributes();
+			return externalType.postDeleteUser(user, configurationAttributes);
+		} catch (Exception ex) {
+			log.error(ex.getMessage(), ex);
+		}
+		
+		return false;
+	}
+
+	public boolean executeExternalPostDeleteUserMethods(GluuCustomPerson user) {
+		boolean result = true;
+		for (CustomScriptConfiguration customScriptConfiguration : this.customScriptConfigurations) {
+			result &= executeExternalPostDeleteUserMethod(customScriptConfiguration, user);
+			if (!result) {
+				return result;
+			}
+		}
+
+		return result;
+	}
+
+	public int executeExternalGetApiVersion(CustomScriptConfiguration customScriptConfiguration) {
+		try {
+			log.debug("Executing python 'getApiVersion' method");
+			UpdateUserType externalAuthenticator = (UpdateUserType) customScriptConfiguration.getExternalType();
+			return externalAuthenticator.getApiVersion();
+		} catch (Exception ex) {
+			log.error(ex.getMessage(), ex);
+		}
+
+		return -1;
+	}
 
 }

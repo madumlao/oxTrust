@@ -9,19 +9,20 @@ package org.gluu.oxtrust.action;
 import java.io.Serializable;
 import java.util.List;
 
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.ScopeService;
 import org.gluu.oxtrust.model.OxAuthScope;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.log.Log;
+import org.slf4j.Logger;
+import org.xdi.service.security.Secure;
 import org.xdi.util.Util;
 
 /**
@@ -29,15 +30,24 @@ import org.xdi.util.Util;
  * 
  * @author Reda Zerrad Date: 06.18.2012
  */
-@Name("searchScopeAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@Named
+@ConversationScoped
+@Secure("#{permissionService.hasPermission('scope', 'access')}")
 public class SearchScopeAction implements Serializable {
 
 	private static final long serialVersionUID = -6633178742652918098L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
+
+	@Inject
+	private FacesMessages facesMessages;
+
+	@Inject
+	private ConversationService conversationService;
+
+	@Inject
+	private ScopeService scopeService;
 
 	@NotNull
 	@Size(min = 0, max = 30, message = "Length of search string should be less than 30")
@@ -47,15 +57,10 @@ public class SearchScopeAction implements Serializable {
 
 	private List<OxAuthScope> scopeList;
 
-	@In
-	private ScopeService scopeService;
-
-	@Restrict("#{s:hasPermission('scope', 'access')}")
 	public String start() {
 		return search();
 	}
 
-	@Restrict("#{s:hasPermission('scope', 'access')}")
 	public String search() {
 		if (Util.equals(this.oldSearchPattern, this.searchPattern)) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -64,13 +69,16 @@ public class SearchScopeAction implements Serializable {
 		try {
 			this.scopeList = scopeService.searchScopes(this.searchPattern, 100);
 			this.oldSearchPattern = this.searchPattern;
-
-			return OxTrustConstants.RESULT_SUCCESS;
 		} catch (Exception ex) {
 			log.error("Failed to find scopes", ex);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to find scopes");
+
+			conversationService.endConversation();
+
+			return OxTrustConstants.RESULT_FAILURE;
 		}
 
-		return OxTrustConstants.RESULT_FAILURE;
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
 	public String getSearchPattern() {

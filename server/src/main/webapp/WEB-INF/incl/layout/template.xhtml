@@ -2,13 +2,12 @@
    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
     <html xmlns="http://www.w3.org/1999/xhtml">
 <f:view xmlns="http://www.w3.org/1999/xhtml"
-        xmlns:ui="http://java.sun.com/jsf/facelets"
-        xmlns:f="http://java.sun.com/jsf/core"
-        xmlns:h="http://java.sun.com/jsf/html"
+        xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+        xmlns:f="http://xmlns.jcp.org/jsf/core"
+        xmlns:h="http://xmlns.jcp.org/jsf/html"
         xmlns:a="http://richfaces.org/a4j"
-        xmlns:s="http://jboss.org/schema/seam/taglib"
         xmlns:gluufn="http://www.gluu.org/jsf/functions"
-        contentType="text/html">
+        contentType="text/html" locale="#{language.localeCode}">
     <h:head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
       	<title>#{organizationService.organization.organizationTitle}</title>
@@ -36,7 +35,7 @@
         <ui:insert name="head"/>	
 
         <ui:param name="themeColor" value="#{organizationService.organization.themeColor}" />
-        <s:fragment rendered="#{not empty themeColor}">
+        <ui:fragment rendered="#{not empty themeColor}">
             <style type="text/css">
                 .rf-tb-itm, .rf-tb-emp{
                     height: 33px;
@@ -44,7 +43,7 @@
                     background-image: none;
                 }
             </style>
-        </s:fragment>
+        </ui:fragment>
     </h:head>
     <h:body>
         <img src="#{request.contextPath}/servlet/logo" alt="logo" id="logo"/>
@@ -65,25 +64,13 @@
                 </div>
             </div>
       </div>
-        <s:fragment rendered="#{not isLogin}">
+        <ui:fragment rendered="#{not isLogin}">
             <div class="footer">
                 <p>Copyright <a href="http://www.gluu.org">Gluu</a> All rights reserved.</p>
             </div>
-        </s:fragment>
+        </ui:fragment>
 
       <div class="footer">
-         <s:fragment rendered="#{init.debug}">
-         <a:log hotkey="D"/>
-         <p style="margin-top: -0.5em;">
-            Conversation: id = #{conversation.id}, #{conversation.longRunning ? 'long running' : 'temporary'}#{conversation.nested ? ', nested, parent id = '.concat(conversation.parentId) : ''}
-            #{' - '}
-            Ajax4jsf Log (Ctrl+Shift+D)
-            #{' - '}
-            <s:link id="debugConsole" view="/debug.xhtml" value="Debug console" target="debugConsole"/>
-            #{' - '}
-            <s:link id="resetSession" view="/home.xhtml" action="#{org.jboss.seam.web.session.invalidate()}" propagation="none" value="Terminate session"/>
-         </p>
-         </s:fragment>
       </div>
     </h:body>
 </f:view>

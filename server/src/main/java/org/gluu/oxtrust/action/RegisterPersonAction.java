@@ -16,14 +16,20 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.enterprise.context.ConversationScoped;
 import javax.faces.application.FacesMessage;
 import javax.faces.component.UIComponent;
-import javax.faces.context.ExternalContext;
 import javax.faces.context.FacesContext;
 import javax.faces.validator.ValidatorException;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import org.apache.commons.lang.StringUtils;
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.AttributeService;
 import org.gluu.oxtrust.ldap.service.IPersonService;
 import org.gluu.oxtrust.ldap.service.OrganizationService;
@@ -34,62 +40,48 @@ import org.gluu.oxtrust.model.GluuOrganization;
 import org.gluu.oxtrust.model.RegistrationConfiguration;
 import org.gluu.oxtrust.service.external.ExternalUserRegistrationService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.hibernate.validator.constraints.Email;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Out;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.core.Events;
-import org.jboss.seam.faces.FacesMessages;
-import org.jboss.seam.faces.Redirect;
-import org.jboss.seam.international.StatusMessage;
-import org.jboss.seam.log.Log;
-import org.xdi.config.oxtrust.ApplicationConfiguration;
-import org.xdi.ldap.model.GluuStatus;
+import org.gluu.persist.model.base.GluuStatus;
+import org.slf4j.Logger;
+import org.xdi.config.oxtrust.AppConfiguration;
 import org.xdi.model.GluuAttribute;
 import org.xdi.model.GluuUserRole;
+import org.xdi.service.security.Secure;
 import org.xdi.util.StringHelper;
 
 /**
  * @author Dejan Maric
  * @author Yuriy Movchan Date: 08.14.2015
  */
-@Scope(ScopeType.CONVERSATION)
-@Name("registerPersonAction")
+@ConversationScoped
+@Named("registerPersonAction")
 public class RegisterPersonAction implements Serializable {
 
 	private static final long serialVersionUID = 6002737004324917338L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In(value = "#{facesContext.externalContext}")
-	private ExternalContext externalContext;
-
-	@In
+	@Inject
 	private AttributeService attributeService;
 
-	@In
+	@Inject
 	private OrganizationService organizationService;
-	
-	@In
-	Redirect redirect;
 
-	@In(create = true)
-	@Out(scope = ScopeType.CONVERSATION)
+	@Inject
 	private CustomAttributeAction customAttributeAction;
 
-	@In
+	@Inject
 	private FacesMessages facesMessages;
 
-	@In
+	@Inject
+	private ConversationService conversationService;
+
+	@Inject
 	private ExternalUserRegistrationService externalUserRegistrationService;
 
 	private GluuCustomPerson person;
 
-	@In
+	@Inject
 	private IPersonService personService;
 
 	@NotNull
@@ -110,10 +102,10 @@ public class RegisterPersonAction implements Serializable {
 		this.email = email;
 	}
 
-	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
-	private ApplicationConfiguration applicationConfiguration;
+	@Inject
+	private AppConfiguration appConfiguration;
 
-	@In
+	@Inject
 	private RecaptchaService recaptchaService;
 
 	private List<String> hiddenAttributes;
@@ -125,6 +117,7 @@ public class RegisterPersonAction implements Serializable {
 	private boolean captchaDisabled = false;
 
     private String postRegistrationInformation;
+    
 
 	/**
 	 * Initializes attributes for registering new person
@@ -133,6 +126,20 @@ public class RegisterPersonAction implements Serializable {
 	 * @throws Exception
 	 */
 	public String initPerson() {
+		String outcome = initPersonImpl();
+		
+		if (OxTrustConstants.RESULT_FAILURE.equals(outcome)) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "You cannot enter this page. Please contact site administration.");
+			conversationService.endConversation();
+		} else if (OxTrustConstants.RESULT_NO_PERMISSIONS.equals(outcome)) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to execute registration script. Please contact site administration.");
+			conversationService.endConversation();
+		}
+		
+		return outcome;
+	}
+
+	public String initPersonImpl() {
 		initRecaptcha();
 
 		String result = sanityCheck();
@@ -140,9 +147,9 @@ public class RegisterPersonAction implements Serializable {
 
 			if(!externalUserRegistrationService.isEnabled()){
 				return OxTrustConstants.RESULT_NO_PERMISSIONS;
-			}  
+			}      
 				
-			this.person = (inum == null) ? new GluuCustomPerson() : personService.getPersonByInum(inum);
+			this.person = (inum == null || inum.isEmpty()) ? new GluuCustomPerson() : personService.getPersonByInum(inum);
 
 			boolean isPersonActiveOrDisabled = GluuStatus.ACTIVE.equals(person.getStatus()) || GluuStatus.INACTIVE.equals(person.getStatus());
 
@@ -168,7 +175,7 @@ public class RegisterPersonAction implements Serializable {
 			return OxTrustConstants.RESULT_SUCCESS;
 		}
 
-		requestParameters.putAll(externalContext.getRequestParameterValuesMap());
+		requestParameters.putAll(FacesContext.getCurrentInstance().getExternalContext().getRequestParameterValuesMap());
 
 		return OxTrustConstants.RESULT_SUCCESS;
 
@@ -186,6 +193,25 @@ public class RegisterPersonAction implements Serializable {
 	}
 
 	public String register() throws CloneNotSupportedException {
+		String outcome = registerImpl();
+		
+		if (OxTrustConstants.RESULT_SUCCESS.equals(outcome)) {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "You successfully registered.");
+			conversationService.endConversation();
+		} else if (OxTrustConstants.RESULT_DISABLED.equals(outcome)) {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "You successfully registered. But your account is disabled.");
+			conversationService.endConversation();
+		} else if (OxTrustConstants.RESULT_FAILURE.equals(outcome)) {
+			log.error("Failed to register new user. Please make sure you are not registering a duplicate account or try another username.");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to register new user. Please make sure you are not registering a duplicate account or try another username.");
+		} else if (OxTrustConstants.RESULT_CAPTCHA_VALIDATION_FAILED.equals(outcome)) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Captcha validation failed. Please try again.");
+		}
+		
+		return outcome;
+	}
+
+	public String registerImpl() throws CloneNotSupportedException {
 		boolean registrationFormValid = StringHelper.equals(password, repeatPassword);
 
 		if (!captchaDisabled) {
@@ -225,48 +251,65 @@ public class RegisterPersonAction implements Serializable {
 			} else {
 				this.person.setCommonName(this.person.getCommonName());
 			}
-
 			// save password
 			this.person.setUserPassword(password);
 			this.person.setCreationDate(new Date());
 			this.person.setMail(email);
 			
-
 			try {
 				// Set default message
 				this.postRegistrationInformation = "You have successfully registered with oxTrust. Login to begin your session.";
 
-				boolean result = externalUserRegistrationService.executeExternalPreRegistrationMethods(this.person, requestParameters);
+				boolean result = false;
+				result = externalUserRegistrationService.executeExternalPreRegistrationMethods(this.person, requestParameters);
 				if (!result) {
 					this.person = archivedPerson;
 					return OxTrustConstants.RESULT_FAILURE;
 				}
-				if (this.inum != null) {
+				if ((this.inum != null) && !this.inum.isEmpty()) {
 					personService.updatePerson(this.person);
 				} else {
 					personService.addPerson(this.person);
 				}
 				
 				result = externalUserRegistrationService.executeExternalPostRegistrationMethods(this.person, requestParameters);
-
-				Events.instance().raiseEvent(OxTrustConstants.EVENT_PERSON_SAVED, this.person, null, null, null, null, true);
+				
 				if (!result) {
 					this.person = archivedPerson;
 					return OxTrustConstants.RESULT_FAILURE;
 				}
+				
+				if (GluuStatus.INACTIVE.equals(person.getStatus())) {
+					return OxTrustConstants.RESULT_DISABLED;
+				}
 			} catch (Exception ex) {
-				log.error("Failed to add new person {0}", ex, this.person.getInum());
-				facesMessages.add(StatusMessage.Severity.ERROR, "Failed to add new person");
+				log.error("Failed to add new person {}", this.person.getInum(), ex);
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new person");
 				this.person = archivedPerson;
 				return OxTrustConstants.RESULT_FAILURE;
 			}
-
 			return OxTrustConstants.RESULT_SUCCESS;
 		}
+
 		return OxTrustConstants.RESULT_CAPTCHA_VALIDATION_FAILED;
 	}
 
-	public void cancel() {
+	public void confirm() { 
+		HttpServletRequest request = (HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext().getRequest();
+		String code = request.getParameter("code");
+		requestParameters.put("code", new String[]{code});
+		try {
+			boolean result = externalUserRegistrationService.executeExternalConfirmRegistrationMethods(this.person, requestParameters);
+		} catch (Exception ex) {
+			log.error("Failed to confirm registration.", ex);
+		}
+	}
+
+  public String cancel() {
+		facesMessages.add(FacesMessage.SEVERITY_INFO, "You didn't register.");
+		conversationService.endConversation();
+
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
 	private void initAttributes() {
@@ -285,8 +328,8 @@ public class RegisterPersonAction implements Serializable {
 			this.person.setCustomAttributes(customAttributes);
 		}
 
-		String[] personOCs = applicationConfiguration.getPersonObjectClassTypes();
-		String[] personOCDisplayNames = applicationConfiguration.getPersonObjectClassDisplayNames();
+		String[] personOCs = appConfiguration.getPersonObjectClassTypes();
+		String[] personOCDisplayNames = appConfiguration.getPersonObjectClassDisplayNames();
 		customAttributeAction.initCustomAttributes(allPersonAttributes, customAttributes, allAttributOrigins, personOCs, personOCDisplayNames);
 
 		List<GluuCustomAttribute> mandatoryAttributes = new ArrayList<GluuCustomAttribute>();

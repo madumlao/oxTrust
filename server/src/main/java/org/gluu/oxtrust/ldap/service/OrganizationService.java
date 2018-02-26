@@ -6,6 +6,28 @@
 
 package org.gluu.oxtrust.ldap.service;
 
+import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.map.JsonMappingException;
+import org.gluu.oxtrust.model.GluuOrganization;
+import org.gluu.oxtrust.util.OxTrustConstants;
+import org.gluu.persist.exception.mapping.BaseMappingException;
+import org.gluu.persist.ldap.impl.LdapEntryManager;
+import org.gluu.persist.model.base.GluuBoolean;
+import org.gluu.persist.model.base.GluuStatus;
+import org.slf4j.Logger;
+import org.xdi.config.oxauth.WebKeysSettings;
+import org.xdi.config.oxtrust.AppConfiguration;
+import org.xdi.config.oxtrust.LdapOxAuthConfiguration;
+import org.xdi.model.ProgrammingLanguage;
+import org.xdi.service.CacheService;
+import org.xdi.util.ArrayHelper;
+import org.xdi.util.OxConstants;
+import org.xdi.util.StringHelper;
+
+import javax.ejb.Stateless;
+import javax.faces.context.FacesContext;
+import javax.inject.Inject;
+import javax.inject.Named;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,43 +35,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import javax.faces.context.FacesContext;
-
-import org.gluu.oxtrust.model.GluuOrganization;
-import org.gluu.oxtrust.util.OxTrustConstants;
-import org.jboss.seam.Component;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.AutoCreate;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Observer;
-import org.jboss.seam.annotations.Scope;
-import org.xdi.config.oxtrust.ApplicationConfiguration;
-import org.xdi.ldap.model.GluuBoolean;
-import org.xdi.ldap.model.GluuStatus;
-import org.xdi.model.ProgrammingLanguage;
-import org.xdi.oxauth.model.uma.persistence.InternalExternal;
-import org.xdi.service.CacheService;
-import org.xdi.util.ArrayHelper;
-import org.xdi.util.StringHelper;
-
 /**
  * Provides operations with organization
  * 
  * @author Yuriy Movchan Date: 11.02.2010
  */
-@Scope(ScopeType.STATELESS)
-@Name("organizationService")
-@AutoCreate
-public class OrganizationService extends org.xdi.service.OrganizationService{
+@Stateless
+@Named("organizationService")
+public class OrganizationService extends org.xdi.service.OrganizationService {
 
 	private static final long serialVersionUID = -1959146007518514678L;
 
-	@In
+	@Inject
+    private Logger log;
+
+    @Inject
+    private LdapEntryManager ldapEntryManager;
+
+	@Inject
 	private CacheService cacheService;
 
-	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
-	private ApplicationConfiguration applicationConfiguration;
+	@Inject
+	private AppConfiguration appConfiguration;
 
 	/**
 	 * Update organization entry
@@ -60,15 +67,6 @@ public class OrganizationService extends org.xdi.service.OrganizationService{
 	public void updateOrganization(GluuOrganization organization) {
 		ldapEntryManager.merge(organization);
 
-	}
-
-	/**
-	 * Get organizationService instance
-	 * 
-	 * @return OrganizationService instance
-	 */
-	public static OrganizationService instance() {
-		return (OrganizationService) Component.getInstance(OrganizationService.class);
 	}
 	
 	/**
@@ -97,18 +95,18 @@ public class OrganizationService extends org.xdi.service.OrganizationService{
 	 * @return Organization
 	 */
 	public GluuOrganization getOrganizationByInum(String inum) {
-		String key = OxTrustConstants.CACHE_ORGANIZATION_KEY + "_" + inum;
-		GluuOrganization organization = (GluuOrganization) cacheService.get(OxTrustConstants.CACHE_APPLICATION_NAME, key);
+		String key = OxConstants.CACHE_ORGANIZATION_KEY + "_" + inum;
+		GluuOrganization organization = (GluuOrganization) cacheService.get(OxConstants.CACHE_APPLICATION_NAME, key);
 		if (organization == null) {
 			organization = ldapEntryManager.find(GluuOrganization.class, getDnForOrganization(inum));
-			cacheService.put(OxTrustConstants.CACHE_APPLICATION_NAME, key, organization);
+			cacheService.put(OxConstants.CACHE_APPLICATION_NAME, key, organization);
 		}
 
 		return organization;
 	}
 
 	public String getDnForOrganization(String inum) {
-		return getDnForOrganization(inum, applicationConfiguration.getBaseDN());
+		return getDnForOrganization(inum, appConfiguration.getBaseDN());
 	}
 
 	/**
@@ -123,7 +121,7 @@ public class OrganizationService extends org.xdi.service.OrganizationService{
 
 		String key = OxTrustConstants.CACHE_ORGANIZATION_CUSTOM_MESSAGE_KEY + "_" + organization.getInum();
 		@SuppressWarnings("unchecked")
-		Map<String, String> organizationCustomMessage = (Map<String, String>) cacheService.get(OxTrustConstants.CACHE_APPLICATION_NAME, key);
+		Map<String, String> organizationCustomMessage = (Map<String, String>) cacheService.get(OxConstants.CACHE_APPLICATION_NAME, key);
 		if (organizationCustomMessage == null) {
 			organizationCustomMessage = new HashMap<String, String>();
 
@@ -141,7 +139,7 @@ public class OrganizationService extends org.xdi.service.OrganizationService{
 					}
 				}
 			}
-			cacheService.put(OxTrustConstants.CACHE_APPLICATION_NAME, key, organizationCustomMessage);
+			cacheService.put(OxConstants.CACHE_APPLICATION_NAME, key, organizationCustomMessage);
 		}
 
 		return organizationCustomMessage.get(customMessageId);
@@ -166,16 +164,6 @@ public class OrganizationService extends org.xdi.service.OrganizationService{
 	}
 
 	/**
-	 * Remove organization from cache after receiving event that organization
-	 * were changed
-	 */
-	@Observer(OxTrustConstants.EVENT_CLEAR_ORGANIZATION)
-	public void clearOrganizationCache() throws Exception {
-		log.debug("Removing organization from cache");
-		cacheService.removeAll(OxTrustConstants.CACHE_APPLICATION_NAME);
-	}
-
-	/**
 	 * Build DN string for organization
 	 * 
 	 * @return DN string for organization
@@ -192,7 +180,7 @@ public class OrganizationService extends org.xdi.service.OrganizationService{
 	 * @return DN string for organization
 	 */
 	public String getBaseDn() {
-		return applicationConfiguration.getBaseDN();
+		return appConfiguration.getBaseDN();
 	}
 
 	/**
@@ -201,20 +189,20 @@ public class OrganizationService extends org.xdi.service.OrganizationService{
 	 * @return Inum for organization
 	 */
 	public String getInumForOrganization() {
-		return applicationConfiguration.getOrgInum();
+		return appConfiguration.getOrgInum();
 	}
 
 	public boolean isAllowPersonModification() {
-		return applicationConfiguration.isAllowPersonModification(); // todo &&
-																		// ApplianceService.instance().getAppliance().getManageIdentityPermission()
+		return appConfiguration.isAllowPersonModification(); // todo &&
+																		// applianceService.getAppliance().getManageIdentityPermission()
 																		// !=
 																		// null
 																		// &&
-																		// ApplianceService.instance().getAppliance().getProfileManagment().isBooleanValue();
+																		// applianceService.getAppliance().getProfileManagment().isBooleanValue();
 	}
 
 	public String getOrganizationInum() {
-		return applicationConfiguration.getOrgInum();
+		return appConfiguration.getOrgInum();
 	}
 
 
@@ -233,10 +221,6 @@ public class OrganizationService extends org.xdi.service.OrganizationService{
 
 	public ProgrammingLanguage[] getProgrammingLanguageTypes() {
 		return new ProgrammingLanguage[] { ProgrammingLanguage.PYTHON, ProgrammingLanguage.JAVA_SCRIPT };
-	}
-
-	public InternalExternal[] getInternalExternalTypes() {
-		return new InternalExternal[] { InternalExternal.INTERNAL, InternalExternal.EXTERNAL };
 	}
 
 	/**
@@ -263,4 +247,23 @@ public class OrganizationService extends org.xdi.service.OrganizationService{
        	return "";
 	}
 	
+	public LdapOxAuthConfiguration getOxAuthSetting(String configurationDn) {
+		//String configurationDn = configurationFactory.getConfigurationDn();
+
+		LdapOxAuthConfiguration ldapOxAuthConfiguration = null;
+		try {
+			configurationDn = configurationDn.replace("ou=oxtrust", "ou=oxauth");
+			ldapOxAuthConfiguration = ldapEntryManager.find(LdapOxAuthConfiguration.class, configurationDn);
+			return ldapOxAuthConfiguration;
+		} catch (BaseMappingException ex) {
+			log.error("Failed to load configuration from LDAP");
+		}
+
+		return null;
+	}
+
+	public void saveLdapOxAuthConfiguration(LdapOxAuthConfiguration ldapOxAuthConfiguration) {
+		ldapEntryManager.merge(ldapOxAuthConfiguration);
+		
+	}
 }

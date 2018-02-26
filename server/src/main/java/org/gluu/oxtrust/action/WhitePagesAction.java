@@ -12,33 +12,34 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
+import javax.annotation.PostConstruct;
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.AttributeService;
 import org.gluu.oxtrust.ldap.service.IPersonService;
 import org.gluu.oxtrust.ldap.service.ImageService;
 import org.gluu.oxtrust.model.GluuCustomAttribute;
 import org.gluu.oxtrust.model.GluuCustomPerson;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.Create;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.faces.FacesMessages;
-import org.jboss.seam.log.Log;
+import org.slf4j.Logger;
 import org.xdi.model.GluuAttribute;
 import org.xdi.model.GluuImage;
 import org.xdi.model.GluuUserRole;
+import org.xdi.service.security.Secure;
 
 /**
  * Action class for view white pages
  * 
  * @author Yuriy Movchan Date: 11.02.2010
  */
-@Name("whitePagesAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@Named("whitePagesAction")
+@ConversationScoped
+@Secure("#{permissionService.hasPermission('profile', 'access')}")
 public class WhitePagesAction implements Serializable {
 
 	private static final long serialVersionUID = 6730313815008211305L;
@@ -47,19 +48,22 @@ public class WhitePagesAction implements Serializable {
 
 	private List<String> tableAttributes;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In
+	@Inject
 	private FacesMessages facesMessages;
 
-	@In
+	@Inject
+	private ConversationService conversationService;
+
+	@Inject
 	private AttributeService attributeService;
 
-	@In
+	@Inject
 	private ImageService imageService;
 
-	@In
+	@Inject
 	private IPersonService personService;
 
 	private String tableState;
@@ -67,11 +71,12 @@ public class WhitePagesAction implements Serializable {
 	private List<GluuCustomPerson> persons;
 	private Set<Integer> selectedPersons;
 
-	@Create
+	@PostConstruct
 	public void init() {
 		this.tableAttributes = Arrays.asList("cn", "photo1", "mail", "phone");
 	}
 
+	@Secure("#{permissionService.hasPermission(applianceService.appliance, 'whitePagesEnabled')}")
 	public String start() {
 		if (persons != null) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -80,6 +85,7 @@ public class WhitePagesAction implements Serializable {
 		return search();
 	}
 
+	@Secure("#{permissionService.hasPermission(applianceService.appliance, 'whitePagesEnabled')}")
 	public String search() {
 		try {
 			GluuCustomPerson person = new GluuCustomPerson();
@@ -87,6 +93,10 @@ public class WhitePagesAction implements Serializable {
 			this.persons = personService.findPersons(person, 0);
 		} catch (Exception ex) {
 			log.error("Failed to find persons", ex);
+
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to find persons white pages");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 

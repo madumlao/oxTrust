@@ -11,7 +11,8 @@
             "type": "string",
             "enum": [
                 "IN_MEMORY",
-                "MEMCACHED"
+                "MEMCACHED",
+                "REDIS"
             ]
     },
     "memcachedConfiguration":{
@@ -20,7 +21,7 @@
          "properties":{
 		        "servers": {
 		            "id": "servers",
-		            "description": "server details separated by commas",
+		            "description": "server details separated by spaces",
 		            "title": "servers",
 		            "type": "string",
 		            "format": "url",
@@ -91,35 +92,38 @@
            		}
 		},
       	"redisConfiguration": {
-      	 "type":"object",
-         "additionalProperties":false,
-         "properties":{
-			      	"host" : {
-						"id": "host",
-			            "description": "Host value",
-			            "type": "string"		            
-			            },
-			        "port" : {
-						"id": "port",
-			            "description": "port",
-			            "type": "integer",
-			            "multipleOf": 1,
-			            "maximum": 2147483647,
-			            "minimum": 1,
-			            "exclusiveMaximum": false,
-			            "exclusiveMinimum": false
-			            },
-			        "defaultPutExpiration" : {
-						"id": "defaultPutExpiration",
-			            "description": "defaultPutExpiration timeout value",
-			            "type": "integer",
-			            "multipleOf": 1,
-			            "maximum": 2147483647,
-			            "minimum": 1,
-			            "exclusiveMaximum": false,
-			            "exclusiveMinimum": false
-			            }
-           		}
+      	    "type":"object",
+            "additionalProperties":false,
+            "properties":{
+                "redisProviderType": {
+		           	"id": "redisProviderType",
+            		"description": "Type of connection.",
+            		"type": "string",
+            		"enum": [
+                		"STANDALONE",
+                		"CLUSTER",
+                		"SHARDED"
+            		]
+        		},
+        		"servers": {
+                    "id": "servers",
+                    "description": "server details separated by comma, e.g. 'server1:8080,server2:8081'",
+       	            "title": "servers",
+                    "type": "string",
+             	    "format": "url",
+             	    "minLength": 3
+                },
+			    "defaultPutExpiration" : {
+					"id": "defaultPutExpiration",
+			        "description": "defaultPutExpiration timeout value",
+			        "type": "integer",
+			        "multipleOf": 1,
+			        "maximum": 2147483647,
+			        "minimum": 1,
+			        "exclusiveMaximum": false,
+			        "exclusiveMinimum": false
+			    }
+            }
 		}
     }
 }

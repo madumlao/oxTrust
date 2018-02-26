@@ -15,42 +15,38 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import javax.ejb.Stateless;
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import org.gluu.oxtrust.ldap.cache.model.GluuInumMap;
 import org.gluu.oxtrust.ldap.cache.model.GluuSimplePerson;
 import org.gluu.oxtrust.ldap.service.InumService;
 import org.gluu.oxtrust.model.GluuCustomAttribute;
 import org.gluu.oxtrust.model.GluuCustomPerson;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.LdapEntryManager;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.AutoCreate;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.log.Log;
+import org.gluu.persist.ldap.impl.LdapEntryManager;
+import org.gluu.search.filter.Filter;
+import org.slf4j.Logger;
 import org.xdi.util.ArrayHelper;
+import org.xdi.util.OxConstants;
 import org.xdi.util.StringHelper;
-
-import com.unboundid.ldap.sdk.Filter;
-import com.unboundid.ldap.sdk.LDAPException;
 
 /**
  * Provides cache refresh related operations
  * 
  * @author Yuriy Movchan Date: 07.04.2011
  */
-@Scope(ScopeType.STATELESS)
-@Name("cacheRefreshService")
-@AutoCreate
+@Stateless
+@Named("cacheRefreshService")
 public class CacheRefreshService implements Serializable {
 
 	private static final long serialVersionUID = -2225880517520443390L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In
+	@Inject
 	private InumService inumService;
 
 	public Filter createFilter(String customLdapFilter) {
@@ -58,13 +54,7 @@ public class CacheRefreshService implements Serializable {
 			return null;
 		}
 
-		try {
-			return Filter.create(customLdapFilter);
-		} catch (LDAPException e) {
-			log.error("Failed to create filter: {0}", customLdapFilter);
-
-			return null;
-		}
+		return Filter.create(customLdapFilter);
 	}
 
 	public Filter createFilter(String[] keyAttributes, String[] keyObjectClasses, String keyAttributeStart, Filter customFilter) {
@@ -76,31 +66,26 @@ public class CacheRefreshService implements Serializable {
 		for (int i = 0; i < keyAttributes.length; i++) {
 			String filterString = keyAttributes[i];
 
-			try {
-				if (filterString.contains("=")) {
-					filters.add(Filter.create(filterString));
-					// } else {
-					// filters.add(Filter.createPresenceFilter(filterString));
+			if (filterString.contains("=")) {
+				filters.add(Filter.create(filterString));
+				// } else {
+				// filters.add(Filter.createPresenceFilter(filterString));
+			}
+
+			// Limit result list
+			if ((i == 0) && (keyAttributeStart != null)) {
+				int index = filterString.indexOf('=');
+				if (index != -1) {
+					filterString = filterString.substring(0, index);
 				}
 
-				// Limit result list
-				if ((i == 0) && (keyAttributeStart != null)) {
-					int index = filterString.indexOf('=');
-					if (index != -1) {
-						filterString = filterString.substring(0, index);
-					}
-
-					filterString = String.format("%s=%s*", filterString, keyAttributeStart);
-					filters.add(Filter.create(filterString));
-				}
-			} catch (LDAPException ex) {
-				log.error("Failed to create filter: {0}", keyAttributes[i]);
-				return null;
+				filterString = String.format("%s=%s*", filterString, keyAttributeStart);
+				filters.add(Filter.create(filterString));
 			}
 		}
 
 		for (String keyObjectClass : keyObjectClasses) {
-			filters.add(Filter.createEqualityFilter(OxTrustConstants.objectClass, keyObjectClass));
+			filters.add(Filter.createEqualityFilter(OxConstants.OBJECT_CLASS, keyObjectClass));
 		}
 
 		if (customFilter != null) {
@@ -111,7 +96,7 @@ public class CacheRefreshService implements Serializable {
 	}
 
 	public Filter createObjectClassPresenceFilter() {
-		return Filter.createPresenceFilter(OxTrustConstants.objectClass);
+		return Filter.createPresenceFilter(OxConstants.OBJECT_CLASS);
 	}
 
 	public void addInumMap(LdapEntryManager ldapEntryManager, GluuInumMap inumMap) {

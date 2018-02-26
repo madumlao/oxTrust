@@ -6,60 +6,93 @@
 
 package org.gluu.oxtrust.action;
 
-import static org.jboss.seam.ScopeType.CONVERSATION;
-
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.faces.context.ExternalContext;
+import javax.faces.context.FacesContext;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletResponse;
+
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.AttributeService;
+import org.gluu.oxtrust.ldap.service.LdifService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.exception.LdapMappingException;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.log.Log;
-import org.xdi.ldap.model.GluuStatus;
+import org.gluu.persist.exception.mapping.BaseMappingException;
+import org.gluu.persist.model.base.GluuStatus;
+import org.slf4j.Logger;
 import org.xdi.model.GluuAttribute;
 import org.xdi.model.GluuUserRole;
+import org.xdi.service.security.Secure;
 
 /**
  * Action class for displaying attributes
  * 
  * @author Yuriy Movchan Date: 10.17.2010
  */
-@Scope(CONVERSATION)
-@Name("attributeInventoryAction")
-@Restrict("#{identity.loggedIn}")
+@ConversationScoped
+@Named
+@Secure("#{permissionService.hasPermission('attribute', 'access')}")
 public class AttributeInventoryAction implements Serializable {
 
 	private static final long serialVersionUID = -3832167044333943686L;
 
 	private boolean showInactive = false;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
+
+	@Inject
+	private FacesMessages facesMessages;
+
+	@Inject
+	private ConversationService conversationService;
 
 	private List<GluuAttribute> attributeList;
 
-	@In
+	@Inject
 	private AttributeService attributeService;
 
 	private List<GluuAttribute> activeAttributeList;
+	
+	@Inject
+	private LdifService ldifService;
 
-	@Restrict("#{s:hasPermission('attribute', 'access')}")
+	private Map<String, Boolean> checked = new HashMap<String, Boolean>();
+	private boolean initialized;
+
+	public Map<String, Boolean> getChecked() {
+		return checked;
+	}
+
+	public void setChecked(Map<String, Boolean> checked) {
+		this.checked = checked;
+	}
+
 	public String start() {
 		if (attributeList == null) {
 			try {
 				this.attributeList = attributeService.getAllPersonAttributes(GluuUserRole.ADMIN);
 				this.setActiveAttributeList(attributeService.getAllActivePersonAttributes(GluuUserRole.ADMIN));
-			} catch (LdapMappingException ex) {
+			} catch (BaseMappingException ex) {
 				log.error("Failed to load attributes", ex);
+
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to load attributes");
+				conversationService.endConversation();
 
 				return OxTrustConstants.RESULT_FAILURE;
 			}
 		}
+
+		this.initialized = true;
 
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
@@ -112,4 +145,35 @@ public class AttributeInventoryAction implements Serializable {
 		this.activeAttributeList = activeAttributeList;
 	}
 
+    public void submit() {
+		FacesContext facesContext = FacesContext.getCurrentInstance();
+    	
+    	List<String> checkedItems = new ArrayList<String>();
+
+        for (GluuAttribute item : activeAttributeList) {
+            if (checked.get(item.getInum())) {
+                checkedItems.add(item.getInum());
+            }
+        }
+        log.info("the selections are : {}", checkedItems.size());
+        HttpServletResponse response = (HttpServletResponse) facesContext.getExternalContext().getResponse();
+		response.setContentType("text/plain");
+		response.addHeader("Content-disposition", "attachment; filename=\"attributes.ldif\"");
+		try {
+			ServletOutputStream os = response.getOutputStream();
+			ldifService.exportLDIFFile(checkedItems,os);
+			os.flush();
+			os.close();
+			facesContext.responseComplete();
+		} catch (Exception e) {
+			log.error("\nFailure : " + e.toString() + "\n");
+		}
+        checked.clear();
+    }
+
+	public boolean isInitialized() {
+		return initialized;
+	}
+
 }
+      

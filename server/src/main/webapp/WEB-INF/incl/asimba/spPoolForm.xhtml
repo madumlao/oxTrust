@@ -1,14 +1,14 @@
 <!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <ui:composition xmlns="http://www.w3.org/1999/xhtml"
-	xmlns:s="http://jboss.org/schema/seam/taglib"
-	xmlns:ui="http://java.sun.com/jsf/facelets"
-	xmlns:f="http://java.sun.com/jsf/core"
-	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+	xmlns:f="http://xmlns.jcp.org/jsf/core"
+	xmlns:h="http://xmlns.jcp.org/jsf/html"
 	xmlns:a4j="http://richfaces.org/a4j"
 	xmlns:rich="http://richfaces.org/rich"
-	xmlns:richext="http://java.sun.com/jsf/composite/richext"
-	xmlns:c="http://java.sun.com/jsp/jstl/core">
+	xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
+ 	xmlns:ox="http://xmlns.jcp.org/jsf/composite/ox"
+	xmlns:c="http://xmlns.jcp.org/jsp/jstl/core">
 
     <h:outputStylesheet>
         .attributeColumn {
@@ -61,106 +61,96 @@
     </h:outputStylesheet>
 
 	<h:form id="editSPPoolForm">
-            <!-- Workaround. TODO: Remove after upgrade to SEAM 2.3.1 -->
-            <input type='hidden' name='cid' value='#{conversation.id}' />
-            
             <div class="row">
                 <div class="col-xs-12">
             
             <h:panelGroup id="spPoolEditIDGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                     id="spPoolEditID"
-                    rendered="true">
-                <ui:define name="label">ID</ui:define>
+                    label="#{msg['asimba.id']}">
 
                 <h:outputLabel 
-                    title="The id of the SP Pool. Example: requestorpool.1"
-                    value="The id of the SP Pool"/>
+                    title="#{msg['asimba.theIdOfTheSPPoolExample']}"
+                    value="#{msg['asimba.theIdOfTheSPPool']}"/>
                 <h:inputText styleClass="form-control"
-                    title="The id of the SP Pool. Example: requestorpool.1"
+                    title="#{msg['asimba.theIdOfTheSPPoolExample']}"
                     value="#{_spPool.id}" size="100" tabindex="0" 
                     required="true" />
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
             
             <h:panelGroup id="spPoolEditFriendlyNameGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                     id="spPoolEditFriendlyName"
-                    rendered="true">
-                <ui:define name="label">Friendly Name</ui:define>
+                    label="#{msg['asimba.friendlyName']}">
                 <h:outputLabel 
-                    title="The SP Pool friendly name"
-                    value="The SP Pool friendly name"/>
+                    title="#{msg['asimba.theSPPoolFriendlyName']}"
+                    value="#{msg['asimba.theSPPoolFriendlyName']}"/>
                 <h:inputText styleClass="form-control"
-                    title="The SP Pool friendly name"
+                    title="#{msg['asimba.theSPPoolFriendlyName']}"
                     value="#{_spPool.friendlyName}" size="100" tabindex="1" />
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
             
             <h:panelGroup id="spPoolEditPreAuthorizationProfileIDGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                     id="spPoolEditPreAuthorizationProfileID"
-                    rendered="true">
-                <ui:define name="label">PreAuthorizationProfileID</ui:define>
+                    label="#{msg['asimba.preAuthorizedProfileIDLabel']}">
                 <!-- TODO: selectbox -->
                 <h:inputText styleClass="form-control"
-                    title="Pre-authorization profile id. See asimba.xml"
+                    title="#{msg['asimba.preAuthorizedProfileID']}"
                     value="#{_spPool.preAuthorizationProfileID}"  tabindex="2"/>
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
             
             <h:panelGroup id="spPoolEditPostAuthorizationProfileIDGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                     id="spPoolEditPostAuthorizationProfileID"
-                    rendered="true">
-                <ui:define name="label">PostAuthorizationProfileID</ui:define>
+                    label="#{msg['asimba.preAuthorizedProfileIDLabel']}">
                 <!-- postauthz.1 TODO: selectbox -->
                 <h:inputText styleClass="form-control"
-                    title="Post-authorization profile id. See asimba.xml"
+                    title="#{msg['asimba.preAuthorizedProfileID']}"
                     value="#{_spPool.postAuthorizationProfileID}" 
                     required="true" tabindex="3" />
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
             
             <h:panelGroup id="spPoolEditAttributeReleasePolicyIDGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                     id="spPoolEditAttributeReleasePolicyID"
-                    rendered="true">
-                <ui:define name="label">AttributeReleasePolicyID</ui:define>
+                    label="#{msg['asimba.attributeReleasePolicyIDLabel']}">
                 <!-- asimba.releasepolicy.1 TODO: checkbox -->
                 <h:inputText styleClass="form-control"
-                    title="Attribute release policy ID. See asimba.xml"
+                    title="#{msg['asimba.attributeReleasePolicyID']}"
                     value="#{_spPool.attributeReleasePolicyID}" 
                     required="true" tabindex="4" />
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
             
             <h:panelGroup id="spPoolEditAuthenticationProfileIDsGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                     id="spPoolEditAuthenticationProfileIDs"
-                    rendered="true">
-                <ui:define name="label">AuthenticationProfileIDs</ui:define>
+                    label="#{msg['asimba.authenticationProfileIDs']}">
                 <!-- remote.saml2 TODO: multiselect list -->
                 <h:inputText styleClass="form-control"
-                    title="Authentication profile IDs. See asimba.xml"
+                    title="#{msg['asimba.authenticationProfileIDs']}"
                     value="#{_spPool.authenticationProfileIDs}" 
                     required="true"  tabindex="5" />
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
             
             <h:panelGroup id="spPoolRequestorEditAdditionalPropertiesGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                     id="spPoolRequestorEditAdditionalProperties"
-                    rendered="true">
-                <ui:define name="label">Properties</ui:define>
+                    label="#{msg['asimba.properties']}">
 
                 <h:outputLabel 
-                    title="Additional properties"
-                    value="Additional properties"/>
+                    title="#{msg['asimba.additionalProperties']}"
+                    value="#{msg['asimba.additionalProperties']}"/>
                 <h:inputText styleClass="form-control"
                     title=""
                     value="#{_updateAsimbaSPPoolAction.spPoolAdditionalProperties}"  tabindex="6" />
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
             
             <table style="width: 100%; text-align: left;" border="0" cellpadding="2" cellspacing="2">
@@ -179,11 +169,11 @@
                     <tr>
                         <td colspan="2" rowspan="1">
             <h:selectBooleanCheckbox 
-                title="Sets whether the IdP should force the user to reauthenticate."
+                title="#{msg['asimba.setsWhetherTheIDP']}"
                 value="#{_spPool.forcedAuthenticate}" />
             <h:outputLabel 
-                title="Sets whether the IdP should force the user to reauthenticate."
-                value="Forced Authenticate"/>
+                title="#{msg['asimba.setsWhetherTheIDP']}"
+                value="#{msg['asimba.forcedAuthenticate']}"/>
                         </td>
                         <td colspan="2" rowspan="1">          
                         </td>

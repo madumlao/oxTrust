@@ -1,14 +1,14 @@
 <!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <ui:composition xmlns="http://www.w3.org/1999/xhtml"
-	xmlns:s="http://jboss.org/schema/seam/taglib"
-	xmlns:ui="http://java.sun.com/jsf/facelets"
-	xmlns:f="http://java.sun.com/jsf/core"
-	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+	xmlns:f="http://xmlns.jcp.org/jsf/core"
+	xmlns:h="http://xmlns.jcp.org/jsf/html"
 	xmlns:a4j="http://richfaces.org/a4j"
 	xmlns:rich="http://richfaces.org/rich"
-	xmlns:richext="http://java.sun.com/jsf/composite/richext"
-	xmlns:c="http://java.sun.com/jsp/jstl/core">
+	xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
+ 	xmlns:ox="http://xmlns.jcp.org/jsf/composite/ox"
+	xmlns:c="http://xmlns.jcp.org/jsp/jstl/core">
 
     <h:outputStylesheet>
         .attributeColumn {
@@ -62,17 +62,13 @@
     
 
 	<h:form id="editSelectorForm">
-            <!-- Workaround. TODO: Remove after upgrade to SEAM 2.3.1 -->
-            <input type='hidden' name='cid' value='#{conversation.id}' />
-            
             <div class="row">
                 <div class="col-xs-12">
                     
             <h:panelGroup id="selectorSelectSPRequestorGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                 id="selectorSelectSPRequestor"
-                rendered="true">
-                <ui:define name="label">Select SP Requestor</ui:define>
+                label="#{msg['asimba.selectSPRequestor']}">
 
                 <h:selectOneMenu styleClass="form-control"
                     title=""
@@ -80,14 +76,13 @@
                     required="true" tabindex="0" >
                     <f:selectItems value="#{_updateAsimbaSelectorAction.spRequestorList}" />
                 </h:selectOneMenu>
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
                     
             <h:panelGroup id="selectorSelectIDPGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                 id="selectorSelectIDP"
-                rendered="true">
-                <ui:define name="label">Select IDP</ui:define>
+                label="#{msg['asimba.selectIDP']}">
 
                 <h:selectOneMenu styleClass="form-control"
                     title=""
@@ -95,21 +90,20 @@
                     required="true" tabindex="1" >
                     <f:selectItems value="#{_updateAsimbaSelectorAction.idpList}" />
                 </h:selectOneMenu>
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
             
             <h:panelGroup id="selectorEditFriendlyNameGroupId">
-            <s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+            <ox:decorate
                     id="selectorEditFriendlyName"
-                    rendered="true">
-                    <ui:define name="label">Friendly Name</ui:define>
+                    label="#{msg['asimba.friendlyName']}">
             <h:outputLabel 
-                title="The selector rule friendly name"
-                value="The selector rule friendly name"/>
+                title="#{msg['asimba.theSelectorRuleFriendlyName']}"
+                value="#{msg['asimba.theSelectorRuleFriendlyName']}"/>
             <h:inputText styleClass="form-control"
                 title="The selector rule friendly name"
                 value="#{_selector.friendlyName}" size="100" tabindex="2" />
-            </s:decorate>
+            </ox:decorate>
             </h:panelGroup>
             
             <table style="width: 100%; text-align: left;" border="0" cellpadding="2" cellspacing="2">
@@ -117,10 +111,10 @@
                     <tr>
                         <td colspan="2" rowspan="1">
             <h:selectBooleanCheckbox 
-                title="Enabled"
+                title="#{msg['asimba.enabled']}"
                 value="#{_selector.enabled}" />
             <h:outputLabel 
-                value="Enabled"/>
+                value="#{msg['asimba.enabled']}"/>
                         </td>
                         <td colspan="2" rowspan="1">
                         </td>

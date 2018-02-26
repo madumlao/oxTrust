@@ -95,13 +95,6 @@
             "format": "url",
             "minLength": 1
         },
-        "validateTokenEndpoint": {
-            "id": "validateTokenEndpoint",
-            "description": "URL of the Endpoint for token validation.",
-            "type": "string",
-            "format": "url",
-            "minLength": 1
-        },
         "openIdDiscoveryEndpoint": {
             "id": "openIdDiscoveryEndpoint",
             "description": "URL for the Discovery Endpoint.",
@@ -172,13 +165,6 @@
             "format": "url",
             "minLength": 1
         },
-        "oxElevenJwksEndpoint": {
-            "id": "oxElevenJwksEndpoint",
-            "description": "URL for the oxEleven JWKS Endpoint.",
-            "type": "string",
-            "format": "url",
-            "minLength": 1
-        },
         "openidSubAttribute": {
             "id": "openidSubAttribute",
             "description": "LDAP attribute used for the sub claim.",
@@ -193,16 +179,18 @@
             "minItems": 1,
             "uniqueItems": true,
             "items": {
-                "type": "string",
-                "enum": [
-                    "code",
-                    "code id_token",
-                    "token",
-                    "token id_token",
-                    "code token",
-                    "code token id_token",
-                    "id_token"
-                ]
+                "type": "array",
+                "format": "select",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                    "type": "string",
+                    "enum": [
+                        "code",
+                        "token",
+                        "id_token"
+                    ]
+                }
             }
         },
         "grantTypesSupported": {
@@ -217,7 +205,29 @@
                 "enum": [
                     "authorization_code",
                     "implicit",
-                    "urn:ietf:params:oauth:grant-type:jwt-bearer"
+                    "password",
+                    "client_credentials",
+                    "refresh_token",
+                    "urn:ietf:params:oauth:grant-type:uma-ticket"
+                ]
+            }
+        },
+        "dynamicGrantTypeDefault": {
+            "id": "dynamicGrantTypeDefault",
+            "description": "A list of the OAuth 2.0 Grant Type values that it's possible to set via client registration API.",
+            "type": "array",
+            "format": "select",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "enum": [
+                    "authorization_code",
+                    "implicit",
+                    "password",
+                    "client_credentials",
+                    "refresh_token",
+                    "urn:ietf:params:oauth:grant-type:uma-ticket"
                 ]
             }
         },
@@ -311,6 +321,7 @@
             "items": {
                 "type": "string",
                 "enum": [
+                    "none",
                     "HS256",
                     "HS384",
                     "HS512",
@@ -525,6 +536,16 @@
                 "minLength": 1
             }
         },
+        "persistIdTokenInLdap": {
+            "id": "persistIdTokenInLdap",
+            "description": "Specifies whether to persist id_token into LDAP (otherwise saves into cache).",
+            "type": "boolean"
+        },
+        "persistRefreshTokenInLdap": {
+            "id": "persistRefreshTokenInLdap",
+            "description": "Specifies whether to persist refresh_token into LDAP (otherwise saves into cache).",
+            "type": "boolean"
+        },
         "claimsParameterSupported": {
             "id": "claimsParameterSupported",
             "description": "Specifies whether the OP supports use of the claims parameter.",
@@ -589,8 +610,8 @@
             "exclusiveMaximum": false,
             "exclusiveMinimum": false
         },
-        "shortLivedAccessTokenLifetime": {
-            "id": "shortLivedAccessTokenLifetime",
+        "accessTokenLifetime": {
+            "id": "accessTokenLifetime",
             "description": "The lifetime of the short lived Access Token.",
             "type": "integer",
             "multipleOf": 1,
@@ -599,9 +620,9 @@
             "exclusiveMaximum": false,
             "exclusiveMinimum": false
         },
-        "longLivedAccessTokenLifetime": {
-            "id": "longLivedAccessTokenLifetime",
-            "description": "The lifetime of the long lived Access Token.",
+        "umaRptLifetime": {
+            "id": "umaRptLifetime",
+            "description": "UMA RPT lifetime",
             "type": "integer",
             "multipleOf": 1,
             "maximum": 2147483647,
@@ -609,9 +630,9 @@
             "exclusiveMaximum": false,
             "exclusiveMinimum": false
         },
-        "umaRequesterPermissionTokenLifetime": {
-            "id": "umaRequesterPermissionTokenLifetime",
-            "description": "",
+        "umaPctLifetime": {
+            "id": "umaPctLifetime",
+            "description": "UMA PCT lifetime",
             "type": "integer",
             "multipleOf": 1,
             "maximum": 2147483647,
@@ -621,12 +642,17 @@
         },
         "umaAddScopesAutomatically": {
             "id": "umaAddScopesAutomatically",
-            "description": "",
+            "description": "Add UMA scopes automatically if it is not registered yet",
+            "type": "boolean"
+        },
+        "umaValidateClaimToken": {
+            "id": "umaValidateClaimToken",
+            "description": "Validate claim_token as id_token assuming it is issued by local idp.",
             "type": "boolean"
         },
         "umaKeepClientDuringResourceSetRegistration": {
             "id": "umaKeepClientDuringResourceSetRegistration",
-            "description": "",
+            "description": "Save client information during resource registration",
             "type": "boolean"
         },
         "umaRptAsJwt": {
@@ -705,7 +731,7 @@
             "type": "integer",
             "multipleOf": 1,
             "maximum": 2147483647,
-            "minimum": 1,
+            "minimum": 0,
             "exclusiveMaximum": false,
             "exclusiveMinimum": false
         },
@@ -729,6 +755,18 @@
             "description": "LDAP custom object class for dynamic registration.",
             "type": "string",
             "minLength": 1
+        },
+        "personCustomObjectClassList": {
+            "id": "personCustomObjectClassList",
+            "description": "LDAP custom object class list for dynamic person enrollment.",
+            "type": "array",
+            "minItems": 0,
+            "uniqueItems": true,
+            "additionalItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
         },
         "authenticationFiltersEnabled": {
             "id": "authenticationFiltersEnabled",
@@ -815,7 +853,7 @@
         },
         "sessionIdUnusedLifetime": {
             "id": "sessionIdUnusedLifetime",
-            "description": "The lifetime for unused session IDs.",
+            "description": "The lifetime for unused session states.",
             "type": "integer",
             "multipleOf": 1,
             "maximum": 2147483647,
@@ -825,7 +863,17 @@
         },
         "sessionIdUnauthenticatedUnusedLifetime": {
             "id": "sessionIdUnauthenticatedUnusedLifetime",
-            "description": "The lifetime for unused unauthenticated session IDs.",
+            "description": "The lifetime for unused unauthenticated session states.",
+            "type": "integer",
+            "multipleOf": 1,
+            "maximum": 2147483647,
+            "minimum": 1,
+            "exclusiveMaximum": false,
+            "exclusiveMinimum": false
+        },
+        "sessionIdLifetime": {
+            "id": "sessionIdLifetime",
+            "description": "The lifetime of session id in seconds.",
             "type": "integer",
             "multipleOf": 1,
             "maximum": 2147483647,
@@ -841,11 +889,6 @@
         "sessionIdPersistOnPromptNone": {
             "id": "sessionIdPersistOnPromptNone",
             "description": "Boolean value specifying whether to persist session ID on prompt none.",
-            "type": "boolean"
-        },
-        "sessionStateHttpOnly": {
-            "id": "sessionStateHttpOnly",
-            "description": "Boolean value specifying whether to set Session State HttpOnly.",
             "type": "boolean"
         },
         "configurationUpdateInterval": {
@@ -988,6 +1031,11 @@
             "description": "Boolean value to specify support for front channel logout session.",
             "type": "boolean"
         },
+        "useCacheForAllImplicitFlowObjects": {
+            "id": "useCacheForAllImplicitFlowObjects",
+            "description": "Boolean value to specify whether to persist all objects into cache during Implicit Flow.",
+            "type": "boolean"
+        },
         "updateUserLastLogonTime": {
         	"id": "updateUserLastLogonTime",
             "description": "Boolean value to specify if application should update oxLastLogonTime attribute on user authentication.",
@@ -996,6 +1044,11 @@
         "updateClientAccessTime": {
         	"id": "updateClientAccessTime",
             "description": "Boolean value to specify if application should update oxLastAccessTime/oxLastLogonTime attributes on client authentication.",
+            "type": "boolean"
+        },
+        "enableClientGrantTypeUpdate": {
+        	"id": "enableClientGrantTypeUpdate",
+            "description": "Boolean value to specify if client can update Grant Type values.",
             "type": "boolean"
         },
         "loggingLevel": {
@@ -1014,6 +1067,102 @@
                 "TRACE",
                 "ALL"
             ]
+        },
+        "corsConfigurationFilters": {
+            "id": "corsConfigurationFilters",
+            "description": "CORS Configuration filters.",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": false,
+            "additionalItems": true,
+            "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                    "filterName": {
+                        "id": "filterName",
+                        "description": "",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "corsAllowedOrigins": {
+                        "id": "corsAllowedOrigins",
+                        "description": "",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "corsAllowedMethods": {
+                        "id": "corsAllowedMethods",
+                        "description": "",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "corsAllowedHeaders": {
+                        "id": "corsAllowedHeaders",
+                        "description": "",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "corsExposedHeaders": {
+                        "id": "corsExposedHeaders",
+                        "description": "",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "corsSupportCredentials": {
+                        "id": "corsSupportCredentials",
+                        "description": "",
+                        "type": "boolean"
+                    },
+                    "corsLoggingEnabled": {
+                        "id": "corsLoggingEnabled",
+                        "description": "",
+                        "type": "boolean"
+                    },
+                    "corsPreflightMaxAge": {
+                        "id": "corsPreflightMaxAge",
+                        "description": "",
+                        "type": "integer",
+                        "multipleOf": 1,
+                        "maximum": 2147483647,
+                        "minimum": 1,
+                        "exclusiveMaximum": false,
+                        "exclusiveMinimum": false
+                    },
+                    "corsRequestDecorate": {
+                        "id": "corsRequestDecorate",
+                        "description": "",
+                        "type": "boolean"
+                    }
+                }
+            }
+        },
+        "logClientIdOnClientAuthentication": {
+            "id": "logClientIdOnClientAuthentication",
+            "description": "Boolean value to specify if application should log the Client ID on client authentication.",
+            "type": "boolean"
+        },
+        "logClientNameOnClientAuthentication": {
+            "id": "logClientNameOnClientAuthentication",
+            "description": "Boolean value to specify if application should log the Client Name on client authentication.",
+            "type": "boolean"
+        },
+        "authorizationRequestCustomAllowedParameters": {
+            "id": "authorizationRequestCustomAllowedParameters",
+            "description": "Authorization Request Custom Allowed Parameters.",
+            "type": "array",
+            "minItems": 0,
+            "uniqueItems": true,
+            "additionalItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "legacyDynamicRegistrationScopeParam": {
+            "id": "legacyDynamicRegistrationScopeParam",
+            "description": "Legacy Dynamic Registration Scopes JSON Array Param.",
+            "type": "boolean"
         }
     },
     "required": [
@@ -1029,7 +1178,6 @@
         "endSessionEndpoint",
         "jwksUri",
         "registrationEndpoint",
-        "validateTokenEndpoint",
         "openIdDiscoveryEndpoint",
         "openIdConfigurationEndpoint",
         "idGenerationEndpoint",
@@ -1040,10 +1188,10 @@
         "oxElevenSignEndpoint",
         "oxElevenVerifySignatureEndpoint",
         "oxElevenDeleteKeyEndpoint",
-        "oxElevenJwksEndpoint",
         "openidSubAttribute",
         "responseTypesSupported",
         "grantTypesSupported",
+		"dynamicGrantTypeDefault",
         "subjectTypesSupported",
         "defaultSubjectType",
         "userInfoSigningAlgValuesSupported",
@@ -1072,9 +1220,9 @@
         "authorizationCodeLifetime",
         "refreshTokenLifetime",
         "idTokenLifetime",
-        "shortLivedAccessTokenLifetime",
-        "longLivedAccessTokenLifetime",
-        "umaRequesterPermissionTokenLifetime",
+        "accessTokenLifetime",
+        "umaRptLifetime",
+        "umaPctLifetime",
         "umaAddScopesAutomatically",
         "umaKeepClientDuringResourceSetRegistration",
         "cleanServiceInterval",
@@ -1090,6 +1238,7 @@
         "trustedClientEnabled",
         "dynamicRegistrationScopesParamEnabled",
         "dynamicRegistrationCustomObjectClass",
+        "personCustomObjectClassList",
         "authenticationFiltersEnabled",
         "clientAuthenticationFiltersEnabled",
         "authenticationFilters",
@@ -1099,7 +1248,7 @@
         "sessionIdUnauthenticatedUnusedLifetime",
         "sessionIdEnabled",
         "sessionIdPersistOnPromptNone",
-        "sessionStateHttpOnly",
+        "sessionIdLifetime",
         "configurationUpdateInterval",
         "cssLocation",
         "jsLocation",
@@ -1119,6 +1268,12 @@
         "frontChannelLogoutSessionSupported",
         "updateUserLastLogonTime",
         "updateClientAccessTime",
-        "loggingLevel"
+        "enableClientGrantTypeUpdate",
+        "loggingLevel",
+        "corsConfigurationFilters",
+        "logClientIdOnClientAuthentication",
+        "logClientNameOnClientAuthentication",
+        "authorizationRequestCustomAllowedParameters",
+        "legacyDynamicRegistrationScopeParam"
     ]
 }

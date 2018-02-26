@@ -1,15 +1,14 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml"
-	xmlns:s="http://jboss.org/schema/seam/taglib"
-	xmlns:ui="http://java.sun.com/jsf/facelets"
-	xmlns:f="http://java.sun.com/jsf/core"
-	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+	xmlns:f="http://xmlns.jcp.org/jsf/core"
+	xmlns:h="http://xmlns.jcp.org/jsf/html"
 	xmlns:a4j="http://richfaces.org/a4j"
 	xmlns:rich="http://richfaces.org/rich"
 	xmlns:gluufn="http://www.gluu.org/jsf/functions"
-	xmlns:richext="http://java.sun.com/jsf/composite/richext"
-	xmlns:ox="http://java.sun.com/jsf/composite/ox"
-	xmlns:cc="http://java.sun.com/jsf/composite">
+	xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
+	xmlns:ox="http://xmlns.jcp.org/jsf/composite/ox"
+	xmlns:cc="http://xmlns.jcp.org/jsf/composite">
 
 <cc:interface>
 	<cc:attribute name="ldapConfig" required="true"
@@ -54,97 +53,88 @@
 					</a4j:commandLink>
 					<h:panelGroup columns="1" width="100%" border="0" cellpadding="0"
 						cellspacing="0">
-						<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="name">
-							<ui:define name="label">Name</ui:define>
+						<ox:decorate id="name" label="#{msg['ldapConfig.name']}">
 							<h:inputText styleClass="form-control"
 								value="#{cc.attrs.ldapConfig.configId}"
 								size="#{cc.attrs.inputWidth}" required="true" />
-						</s:decorate>
+						</ox:decorate>
 
 
-						<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-							id="useAnonymousBind" rendered="#{cc.attrs.displayAnonymousBind}">
-							<ui:define name="label">Use Anonymous Bind</ui:define>
+						<ox:decorate
+							id="useAnonymousBind" rendered="#{cc.attrs.displayAnonymousBind}" label="#{msg['ldapConfig.useAnonymousBind']}">
 							<h:selectBooleanCheckbox
 								value="#{cc.attrs.ldapConfig.useAnonymousBind}">
 								<a4j:ajax event="click" render="bindDnGroup" execute="@this" />
 							</h:selectBooleanCheckbox>
-						</s:decorate>
+						</ox:decorate>
 
 						<h:panelGroup id="bindDnGroup">
-							<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
+							<ox:decorate
 								id="bindDn"
-								rendered="#{not cc.attrs.ldapConfig.useAnonymousBind}">
-								<ui:define name="label">Bind DN</ui:define>
+								rendered="#{not cc.attrs.ldapConfig.useAnonymousBind}" label="#{msg['ldapConfig.bindDN']}">
 								<h:inputText styleClass="form-control"
 									value="#{cc.attrs.ldapConfig.bindDN}" size="46"
 									required="#{not ldapConfig.useAnonymousBind}" />
-							</s:decorate>
+							</ox:decorate>
 						</h:panelGroup>
 
-						<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="useSSL">
-							<ui:define name="label">Max connections</ui:define>
+						<ox:decorate id="useSSL" label="#{msg['ldapConfig.maxConnections']}">
 							<h:inputText styleClass="form-control"
 								value="#{cc.attrs.ldapConfig.maxConnections}" size="5"
 								required="true" />
-						</s:decorate>
+						</ox:decorate>
 
-						<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-							rendered="#{cc.attrs.displayPrimaryKey}">
-							<ui:define name="label">Primary key</ui:define>
+						<ox:decorate
+							rendered="#{cc.attrs.displayPrimaryKey}" label="#{msg['ldapConfig.primaryKey']}">
 							<h:inputText styleClass="form-control"
 								value="#{cc.attrs.ldapConfig.primaryKey}" required="true"
 								size="46" />
-						</s:decorate>
+						</ox:decorate>
 
-						<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-							rendered="#{cc.attrs.displayLocalPrimaryKey}">
-							<ui:define name="label">Local primary key</ui:define>
+						<ox:decorate
+							rendered="#{cc.attrs.displayLocalPrimaryKey}" label="#{msg['ldapConfig.localPrimaryKey']}">
 							<h:inputText styleClass="form-control"
 								value="#{cc.attrs.ldapConfig.localPrimaryKey}" required="true"
 								size="46" />
-						</s:decorate>
+						</ox:decorate>
 
-						<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
-							<ui:define name="label">Level</ui:define>
+						<ox:decorate label="#{msg['ldapConfig.level']}">
 							<rich:inputNumberSpinner value="#{cc.attrs.ldapConfig.level}"
 								inputSize="2" minValue="0" maxValue="100" />
-						</s:decorate>
+						</ox:decorate>
 
-			<ox:simplePropertiesList label="Server" labelAdd="server"
+			<ox:simplePropertiesList label="#{msg['ldapConfig.server']}" labelAdd="server"
 							properties="#{cc.attrs.ldapConfig.servers}"
 							propertiesAction="#{cc.attrs.propertiesAction}"
 							inputWidth="#{cc.attrs.inputWidth}" required="true"
 							maxItems="#{cc.attrs.maxServerItems}" />
 
-						<ox:simplePropertiesList label="Base DN" labelAdd="base DN"
+						<ox:simplePropertiesList label="#{msg['ldapConfig.baseDN']}" labelAdd="base DN"
 							maxItems="#{cc.attrs.maxBaseDnItems}"
 							properties="#{cc.attrs.ldapConfig.baseDNs}"
 							propertiesAction="#{cc.attrs.propertiesAction}" required="true"
 							rendered="#{cc.attrs.displayBaseDn}" />
 						
-						<s:decorate template="/WEB-INF/incl/layout/edit.xhtml">
+						<ox:decorate>
 						<a4j:commandLink style= "margin-left:-12px;" styleClass="btn btn-link"
-							value="Change Bind Password"
+							value="#{msg['ldapConfig.changeBindPassword']}"
 							oncomplete="#{rich:component(cc.attrs.changePasswordDialogId)}.show();"
 							rendered="#{cc.attrs.changePasswordDialogId != null}"
 							render="#{cc.attrs.changePasswordDialogId}:changePasswordForm"
 							limitRender="true"
 							action="#{cc.attrs.ldapConfigAction.setActiveLdapConfig(cc.attrs.ldapConfig)}"
 							execute="@this" />
-							</s:decorate>
+							</ox:decorate>
 							
-							<s:decorate template="/WEB-INF/incl/layout/edit.xhtml"
-							id="maxConnection">
-							<ui:define name="label">Use SSL</ui:define>
+							<ox:decorate
+							id="maxConnection" label="#{msg['ldapConfig.useSSL']}">
 							<h:selectBooleanCheckbox value="#{cc.attrs.ldapConfig.useSSL}"
 								required="true" />
-						</s:decorate>
+						</ox:decorate>
 
-						<s:decorate template="/WEB-INF/incl/layout/edit.xhtml" rendered="#{cc.attrs.displayEnable}">
-							<ui:define name="label">Enabled</ui:define>
+						<ox:decorate rendered="#{cc.attrs.displayEnable}" label="#{msg['ldapConfig.enabled']}">
 							<h:selectBooleanCheckbox value="#{cc.attrs.ldapConfig.enabled}" />
-						</s:decorate>
+						</ox:decorate>
 					</h:panelGroup>
 					
 					

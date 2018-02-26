@@ -1,25 +1,25 @@
 <!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
         "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <ui:composition xmlns="http://www.w3.org/1999/xhtml"
-                xmlns:s="http://jboss.org/schema/seam/taglib"
-                xmlns:ui="http://java.sun.com/jsf/facelets"
-                xmlns:f="http://java.sun.com/jsf/core"
-                xmlns:h="http://java.sun.com/jsf/html"
+                xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+                xmlns:f="http://xmlns.jcp.org/jsf/core"
+                xmlns:h="http://xmlns.jcp.org/jsf/html"
                 xmlns:a4j="http://richfaces.org/a4j"
                 xmlns:rich="http://richfaces.org/rich"
-                xmlns:richext="http://java.sun.com/jsf/composite/richext"
+                xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
+ 		xmlns:ox="http://xmlns.jcp.org/jsf/composite/ox"
                 xmlns:gluufn="http://www.gluu.org/jsf/functions">
 
     <section class="content-header">
         <h1 style="color: #333;">
-            OpenID Connect
+            #{msg['sectorIdentifier.openIDConnect']}
             <small>
                 <i class="fa fa-caret-right" style="color: #333 !important;"></i>
-                Manage Sector Identifiers
+                #{msg['sectorIdentifier.manageSectorIdentifiers']}
             </small>
             <small>
                 <i class="fa fa-caret-right" style="color: #333 !important;"></i>
-                Add Sector Identifier
+                #{msg['sectorIdentifier.addSectorIdentifiers']}
             </small>
         </h1>
         <ol class="breadcrumb">
@@ -27,7 +27,7 @@
                 <a href="#{request.contextPath}"><i class="fa fa-home"></i></a>
             </li>
             <li class="organization/configuration">
-                <a href="#{request.contextPath}/sectoridentifier/inventory">Manage Sector Identifiers</a>
+                <a href="#{request.contextPath}/sectoridentifier/inventory">#{msg['sectorIdentifier.manageSectorIdentifiers']}</a>
             </li>
         </ol>
     </section>
@@ -40,25 +40,22 @@
                             <div style="display: inline-block;width: 75% !important;">
                                 <h:panelGrid columns="1" width="100%" border="0" cellpadding="0" cellspacing="0">
 
-                                    <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="inu"
-                                                rendered="#{not _new}">
-                                        <ui:define name="label">Inum</ui:define>
+                                    <ox:decorate id="inu"
+                                                rendered="#{not _new}" label="#{msg['sectorIdentifier.inum']}">
                                         <h:outputText value="#{_sectorIdentifierAction.sectorIdentifier.inum}"/>
-                                    </s:decorate>
+                                    </ox:decorate>
 
-                                    <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="url"
-                                                rendered="#{not _new}">
-                                        <ui:define name="label">Url</ui:define>
+                                    <ox:decorate id="url"
+                                                rendered="#{not _new}" label="#{msg['sectorIdentifier.url']}">
                                         <h:outputLink value="#{_sectorIdentifierAction.sectorIdentifierUrl}"
                                                       target="_blank">
                                             <i class="icon-external-link"></i>
                                             <h:outputText value="&#160;"/>
                                             <h:outputText value="#{_sectorIdentifierAction.sectorIdentifierUrl}"/>
                                         </h:outputLink>
-                                    </s:decorate>
+                                    </ox:decorate>
 
-                                    <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="redirectLoginUrls">
-                                        <ui:define name="label">Redirect Login URIs</ui:define>
+                                    <ox:decorate id="redirectLoginUrls" label="#{msg['sectorIdentifier.redirectLoginURIs']}">
                                         <h:panelGroup id="selectedLoginURIsId">
                                             <h:panelGroup columns="1" width="100%" border="0" cellpadding="0"
                                                           cellspacing="0">
@@ -83,10 +80,9 @@
                                                 <richext:spacer height="16"/>
                                             </h:panelGroup>
                                         </h:panelGroup>
-                                    </s:decorate>
+                                    </ox:decorate>
 
-                                    <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="clients">
-                                        <ui:define name="label">Clients</ui:define>
+                                    <ox:decorate id="clients" label="#{msg['sectorIdentifier.clients']}">
                                         <h:panelGroup id="selectedClientsId">
                                             <h:panelGrid columns="1" width="100%" border="0" cellpadding="0"
                                                          cellspacing="0">
@@ -111,26 +107,26 @@
                                                 </a4j:repeat>
                                             </h:panelGrid>
                                         </h:panelGroup>
-                                    </s:decorate>
+                                    </ox:decorate>
 
-                                    <s:decorate template="/WEB-INF/incl/layout/edit.xhtml" id="command">
+                                    <ox:decorate id="command">
                                         <h:panelGroup>
                                             <div class="btn-group" role="group" aria-label="..."
                                                  style="margin-left:105px;">
                                                 <a4j:commandButton styleClass="btn btn-primary"
-                                                                   value="Add Login URI"
+                                                                   value="#{msg['sectorIdentifier.addLoginUri']}"
                                                                    oncomplete="#{rich:component('loginRedirect:inputText')}.show();"
                                                                    execute="@this"
                                                                    eventsQueue="sectorIdentifierQueue"/>
                                                 <a4j:commandButton styleClass="btn btn-primary"
-                                                                   value="Add Client"
+                                                                   value="#{msg['sectorIdentifier.addClient']}"
                                                                    action="#{_sectorIdentifierAction.selectAddedClients}"
                                                                    oncomplete="#{rich:component('client:selectClientModalPanel')}.show();"
                                                                    execute="@this"
                                                                    eventsQueue="sectorIdentifierQueue"/>
                                             </div>
                                         </h:panelGroup>
-                                    </s:decorate>
+                                    </ox:decorate>
                                 </h:panelGrid>
                             </div>
                         </div>

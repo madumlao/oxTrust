@@ -14,31 +14,30 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.IGroupService;
 import org.gluu.oxtrust.ldap.service.IPersonService;
 import org.gluu.oxtrust.ldap.service.OrganizationService;
 import org.gluu.oxtrust.model.GluuCustomPerson;
 import org.gluu.oxtrust.model.GluuGroup;
 import org.gluu.oxtrust.model.GluuOrganization;
+import org.gluu.oxtrust.security.Identity;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.exception.LdapMappingException;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.core.Events;
-import org.jboss.seam.faces.FacesMessages;
-import org.jboss.seam.international.StatusMessage.Severity;
-import org.jboss.seam.log.Log;
-import org.xdi.config.oxtrust.ApplicationConfiguration;
-import org.xdi.ldap.model.GluuBoolean;
+import org.gluu.persist.exception.mapping.BaseMappingException;
+import org.gluu.persist.model.base.GluuBoolean;
+import org.slf4j.Logger;
+import org.xdi.config.oxtrust.AppConfiguration;
 import org.xdi.model.DisplayNameEntry;
 import org.xdi.service.LookupService;
+import org.xdi.service.security.Secure;
 import org.xdi.util.StringHelper;
 import org.xdi.util.Util;
 
@@ -47,15 +46,15 @@ import org.xdi.util.Util;
  * 
  * @author Yuriy Movchan Date: 11.08.2010
  */
-@Scope(ScopeType.CONVERSATION)
-@Name("updateGroupAction")
-@Restrict("#{identity.loggedIn}")
+@ConversationScoped
+@Named("updateGroupAction")
+@Secure("#{permissionService.hasPermission('group', 'access')}")
 public class UpdateGroupAction implements Serializable {
 
 	private static final long serialVersionUID = 572441515451149801L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
 	private String inum;
 	private boolean update;
@@ -72,26 +71,30 @@ public class UpdateGroupAction implements Serializable {
 
 	private List<GluuCustomPerson> availableMembers;
 
-	@SuppressWarnings("seam-unresolved-variable")
-	@In
-	protected GluuCustomPerson currentPerson;
+	@Inject
+	private Identity identity;
+	
+	@Inject
+	private OrganizationService organizationService;
 
-	@In
+	@Inject
 	private IGroupService groupService;
 
-	@In
+	@Inject
 	private LookupService lookupService;
 
-	@In
-	private IPersonService personService;
-
-	@In
+	@Inject
 	private FacesMessages facesMessages;
 
-	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
-	private ApplicationConfiguration applicationConfiguration;
+	@Inject
+	private ConversationService conversationService;
 
-	@Restrict("#{s:hasPermission('group', 'access')}")
+	@Inject
+	private IPersonService personService;
+
+	@Inject
+	private AppConfiguration appConfiguration;
+
 	public String add() throws Exception {
 		if (this.group != null) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -99,13 +102,16 @@ public class UpdateGroupAction implements Serializable {
 
 		this.update = false;
 		this.group = new GluuGroup();
-		this.group.setOwner(currentPerson.getDn());
-		this.group.setOrganization(OrganizationService.instance().getOrganization().getDn());
+		this.group.setOwner(identity.getUser().getDn());
+		this.group.setOrganization(organizationService.getOrganization().getDn());
 
 		try {
 			this.members = getMemberDisplayNameEntiries();
-		} catch (LdapMappingException ex) {
-			log.error("Failed to load person display names", ex);
+		} catch (BaseMappingException ex) {
+			log.error("Failed to prepare lists", ex);
+
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new group");
+			conversationService.endConversation();
 
 			return OxTrustConstants.RESULT_FAILURE;
 		}
@@ -113,52 +119,63 @@ public class UpdateGroupAction implements Serializable {
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('group', 'access')}")
 	public String update() throws Exception {
 		if (this.group != null) {
 			return OxTrustConstants.RESULT_SUCCESS;
 		}
 
 		this.update = true;
-		log.info("this.update : " + this.update);
+		log.debug("this.update : " + this.update);
 		try {
-			log.info("inum : " + inum);
+			log.debug("inum : " + inum);
 			this.group = groupService.getGroupByInum(inum);
-		} catch (LdapMappingException ex) {
-			log.error("Failed to find group {0}", ex, inum);
-
+		} catch (BaseMappingException ex) {
+			log.error("Failed to find group {}", inum, ex);
 		}
 
 		if (this.group == null) {
-			log.info("Group is null ");
+			log.error("Failed to load group {}", inum);
+
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to find group");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
 		try {
 			this.members = getMemberDisplayNameEntiries();
-		} catch (LdapMappingException ex) {
-			log.error("Failed to load person display names", ex);
+		} catch (BaseMappingException ex) {
+			log.error("Failed to prepare lists", ex);
+
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to load group");
+			conversationService.endConversation();
 
 			return OxTrustConstants.RESULT_FAILURE;
 		}
-		log.info("returning Success");
+		log.debug("returning Success");
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('group', 'access')}")
-	public void cancel() {
+	public String cancel() {
+		if (update) {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "Group '#{updateGroupAction.group.displayName}' not updated");
+		} else {
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "New group not added");
+		}
+
+		conversationService.endConversation();
+
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('group', 'access')}")
 	public String save() throws Exception {
 		List<DisplayNameEntry> oldMembers = null;
 		try {
 			oldMembers = getMemberDisplayNameEntiries();
-		} catch (LdapMappingException ex) {
-			log.info("error getting oldmembers");
+		} catch (BaseMappingException ex) {
 			log.error("Failed to load person display names", ex);
 
-			facesMessages.add(Severity.ERROR, "Failed to update group");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to update group");
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
@@ -168,14 +185,14 @@ public class UpdateGroupAction implements Serializable {
 			try {
 				groupService.updateGroup(this.group);
 				updatePersons(oldMembers, this.members);
-			} catch (LdapMappingException ex) {
+			} catch (BaseMappingException ex) {
+				log.error("Failed to update group {}", this.inum, ex);
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to update group '#{updateGroupAction.group.displayName}'");
 
-				log.info("error updating group ", ex);
-				log.error("Failed to update group {0}", ex, this.inum);
-
-				facesMessages.add(Severity.ERROR, "Failed to update group");
 				return OxTrustConstants.RESULT_FAILURE;
 			}
+
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "Group '#{updateGroupAction.group.displayName}' updated successfully");
 		} else {
 			this.inum = groupService.generateInumForNewGroup();
 			String dn = groupService.getDnForGroup(this.inum);
@@ -186,33 +203,38 @@ public class UpdateGroupAction implements Serializable {
 			try {
 				groupService.addGroup(this.group);
 				updatePersons(oldMembers, this.members);
-			} catch (LdapMappingException ex) {
-				log.info("error saving group ");
-				log.error("Failed to add new group {0}", ex, this.group.getInum());
+			} catch (BaseMappingException ex) {
+				log.error("Failed to add new group {}", this.group.getInum(), ex);
+				facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new group");
 
-				facesMessages.add(Severity.ERROR, "Failed to add new group");
 				return OxTrustConstants.RESULT_FAILURE;
-
 			}
+
+			facesMessages.add(FacesMessage.SEVERITY_INFO, "New group '#{updateGroupAction.group.displayName}' added successfully");
+			conversationService.endConversation();
 
 			this.update = true;
 		}
-		log.info(" returning success updating or saving group");
+		log.debug(" returning success updating or saving group");
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('group', 'access')}")
 	public String delete() throws Exception {
 		if (update) {
 			// Remove group
 			try {
 				groupService.removeGroup(this.group);
-				return OxTrustConstants.RESULT_SUCCESS;
-			} catch (LdapMappingException ex) {
-				log.error("Failed to remove group {0}", ex, this.group.getInum());
 
+				facesMessages.add(FacesMessage.SEVERITY_INFO, "Group '#{updateGroupAction.group.displayName}' removed successfully");
+				conversationService.endConversation();
+
+				return OxTrustConstants.RESULT_SUCCESS;
+			} catch (BaseMappingException ex) {
+				log.error("Failed to remove group {}", this.group.getInum(), ex);
 			}
 		}
+
+		facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to remove group '#{updateGroupAction.group.displayName}'");
 
 		return OxTrustConstants.RESULT_FAILURE;
 	}
@@ -310,21 +332,26 @@ public class UpdateGroupAction implements Serializable {
 	}
 
 	private void updateMembers() {
-		List<String> members = new ArrayList<String>();
-		this.group.setMembers(members);
-
-		for (DisplayNameEntry member : this.members) {
-			members.add(member.getDn());
+		if (this.members == null || this.members.size() == 0) {
+			this.group.setMembers(null);
+			return;
 		}
+
+		List<String> tmpMembers = new ArrayList<String>();
+		for (DisplayNameEntry member : this.members) {
+			tmpMembers.add(member.getDn());
+		}
+
+		this.group.setMembers(tmpMembers);
 	}
 
 	private void updatePersons(List<DisplayNameEntry> oldMembers, List<DisplayNameEntry> newMembers) throws Exception {
-		log.debug("Old members: {0}", oldMembers);
-		log.debug("New members: {0}", newMembers);
+		log.debug("Old members: {}", oldMembers);
+		log.debug("New members: {}", newMembers);
 
 		String groupDn = this.group.getDn();
 
-		GluuOrganization organization = OrganizationService.instance().getOrganization();
+		GluuOrganization organization = organizationService.getOrganization();
 		String organizationGroups[] = { organization.getManagerGroup() };
 
 		// Convert members to array of DNs
@@ -364,9 +391,9 @@ public class UpdateGroupAction implements Serializable {
 
 		for (String dn : addedMembers) {
 			GluuCustomPerson person = personService.getPersonByDn(dn);
-			log.debug("Adding group {0} to person {1} memberOf", groupDn, person.getDisplayName());
+			log.debug("Adding group {} to person {} memberOf", groupDn, person.getDisplayName());
 
-			if (applicationConfiguration.isUpdateApplianceStatus()) {
+			if (appConfiguration.isUpdateApplianceStatus()) {
 				GluuBoolean slaManager = isSLAManager(organizationGroups, person);
 				person.setSLAManager(slaManager);
 			}
@@ -376,14 +403,13 @@ public class UpdateGroupAction implements Serializable {
 			person.setMemberOf(personMemberOf);
 
 			personService.updatePerson(person);
-			Events.instance().raiseEvent(OxTrustConstants.EVENT_PERSON_ADDED_TO_GROUP, person, groupDn);
 		}
 
 		for (String dn : removedMembers) {
 			GluuCustomPerson person = personService.getPersonByDn(dn);
-			log.debug("Removing group {0} from person {1} memberOf", groupDn, person.getDisplayName());
+			log.debug("Removing group {} from person {} memberOf", groupDn, person.getDisplayName());
 
-			if (applicationConfiguration.isUpdateApplianceStatus()) {
+			if (appConfiguration.isUpdateApplianceStatus()) {
 				GluuBoolean slaManager = isSLAManager(organizationGroups, person);
 				person.setSLAManager(slaManager);
 			}
@@ -393,14 +419,13 @@ public class UpdateGroupAction implements Serializable {
 			person.setMemberOf(personMemberOf);
 
 			personService.updatePerson(person);
-			Events.instance().raiseEvent(OxTrustConstants.EVENT_PERSON_REMOVED_FROM_GROUP, person, groupDn);
 		}
 
-		if (applicationConfiguration.isUpdateApplianceStatus()) {
+		if (appConfiguration.isUpdateApplianceStatus()) {
 			// Update existing members if needed
 			for (String dn : existingMembers) {
 				GluuCustomPerson person = personService.getPersonByDn(dn);
-				log.debug("Updating group {0} to person {1} memberOf", groupDn, person.getDisplayName());
+				log.debug("Updating group {} to person {} memberOf", groupDn, person.getDisplayName());
 
 				GluuBoolean slaManager = isSLAManager(organizationGroups, person);
 				if (slaManager.equals(person.getSLAManager())) {
@@ -414,7 +439,7 @@ public class UpdateGroupAction implements Serializable {
 	}
 
 	private GluuBoolean isSLAManager(String[] organizationGroups, GluuCustomPerson person) throws Exception {
-		return GluuBoolean.getByValue(String.valueOf(personService.isMemberOrOwner(organizationGroups, person.getDn())));
+		return GluuBoolean.getByValue(String.valueOf(groupService.isMemberOrOwner(organizationGroups, person.getDn())));
 	}
 
 	private String[] convertToDNsArray(List<DisplayNameEntry> members) {

@@ -6,10 +6,6 @@
 
 package org.gluu.oxtrust.util;
 
-
-import org.jboss.seam.Component;
-import org.xdi.util.OxConstants;
-
 /**
  * Constants loads the LDAP schema attribute names like uid, iname
  *
@@ -17,7 +13,7 @@ import org.xdi.util.OxConstants;
  * @author Javier Rojas Blum
  * @version January 15, 2016
  */
-public final class OxTrustConstants extends OxConstants {
+public final class OxTrustConstants {
 
     public static final String CURRENT_PERSON = "currentPerson";
 
@@ -37,6 +33,7 @@ public final class OxTrustConstants extends OxConstants {
     public static final String description = "description";
     public static final String origin = "gluuAttributeOrigin";
     public static final String mail = "mail";
+    public static final String ppid = "oxPPID";
 
     public static final String status = "status";
     public static final String gluuStatus = "gluuStatus";
@@ -64,6 +61,8 @@ public final class OxTrustConstants extends OxConstants {
     public static final String RESULT_CONFIRM = "confirm";
     public static final String RESULT_EXISTS = "exists";
     public static final String RESULT_LOGOUT = "logout";
+    public static final String RESULT_CLEAR = "clear";
+    public static final String RESULT_UPDATE = "update";
 
 
     public static final String CACHE_ATTRIBUTE_PERSON_KEY_LIST = "personAttributeList";
@@ -75,11 +74,6 @@ public final class OxTrustConstants extends OxConstants {
 
     public static final String EVENT_CLEAR_ATTRIBUTES = "eventClearAttributes";
     public static final String EVENT_CLEAR_ORGANIZATION = "eventClearOrganization";
-    public static final String EVENT_PERSON_SAVED = "eventPersonSaved";
-    public static final String EVENT_PERSON_UPDATED = "eventPersonUpdated";
-    public static final String EVENT_PERSON_DELETED = "eventPersonDeleted";
-    public static final String EVENT_PERSON_ADDED_TO_GROUP = "eventPersonAddedToGroup";
-    public static final String EVENT_PERSON_REMOVED_FROM_GROUP = "eventPersonRemovedFromGroup";
     public static final String RESULT_LOGOUT_SSO = "logout_sso";
     public static final String RESULT_CAPTCHA_VALIDATION_FAILED = "captcha_validation_failed";
 
@@ -161,44 +155,8 @@ public final class OxTrustConstants extends OxConstants {
     public static final int searchGroupSizeLimit = 20;
     public static final int searchSectorIdentifierSizeLimit = 20;
     public static final int searchSizeLimit = 20;
-    
-    // SCIM
-    /**
-     * The HTTP query parameter used in a URI to select specific SCIM
-     * attributes.
-     */
-    public static final String QUERY_PARAMETER_ATTRIBUTES = "attributes";
-
-    /**
-     * The HTTP query parameter used in a URI to provide a filter expression.
-     */
-    public static final String QUERY_PARAMETER_FILTER = "filter";
-
-    /**
-     * The HTTP query parameter used in a URI to sort by a SCIM attribute.
-     */
-    public static final String QUERY_PARAMETER_SORT_BY = "sortBy";
-
-    /**
-     * The HTTP query parameter used in a URI to specify the sort order.
-     */
-    public static final String QUERY_PARAMETER_SORT_ORDER = "sortOrder";
-
-    /**
-     * The HTTP query parameter used in a URI to specify the starting index for
-     * page results.
-     */
-    public static final String QUERY_PARAMETER_START_INDEX = "startIndex";
-
-    public static final String QUERY_PARAMETER_TEST_MODE_OAUTH2_TOKEN = "access_token";
 
     public static final String INTERNAL_SERVER_ERROR_MESSAGE = "Unexpected processing error; please check the input parameters";
-
-    /**
-     * The HTTP query parameter used in a URI to specify the maximum size of a
-     * page of results.
-     */
-    public static final String QUERY_PARAMETER_COUNT = "count";
 
     public static final String PRE_REGISTRATION_SCRIPT = "PreRegistrationScript";
 
@@ -208,19 +166,4 @@ public final class OxTrustConstants extends OxConstants {
     
     public static final String CONFIRM_REGISTRATION_SCRIPT = "ConfirmRegistrationScript";
 
-    public static String getGluuRevisionVersion() {
-        return ((BuildVersion) Component.getInstance(BuildVersion.class)).getRevisionVersion();
-    }
-
-    public static String getGluuRevisionDate() {
-        return ((BuildVersion) Component.getInstance(BuildVersion.class)).getRevisionDate();
-    }
-
-    public static String getGluuBuildDate() {
-        return ((BuildVersion) Component.getInstance(BuildVersion.class)).getBuildDate();
-    }
-
-    public static String getGluuBuildNumber() {
-        return ((BuildVersion) Component.getInstance(BuildVersion.class)).getBuildNumber();
-    }
 }

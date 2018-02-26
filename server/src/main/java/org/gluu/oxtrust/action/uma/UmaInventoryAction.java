@@ -6,61 +6,71 @@
 
 package org.gluu.oxtrust.action.uma;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
-
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.ClientService;
 import org.gluu.oxtrust.ldap.service.ImageService;
 import org.gluu.oxtrust.ldap.service.uma.ResourceSetService;
 import org.gluu.oxtrust.ldap.service.uma.ScopeDescriptionService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.log.Log;
+import org.slf4j.Logger;
 import org.xdi.model.DisplayNameEntry;
-import org.xdi.oxauth.model.uma.persistence.ResourceSet;
-import org.xdi.oxauth.model.uma.persistence.ScopeDescription;
+import org.xdi.oxauth.model.uma.UmaMetadata;
+import org.xdi.oxauth.model.uma.persistence.UmaResource;
+import org.xdi.oxauth.model.uma.persistence.UmaScopeDescription;
 import org.xdi.service.LookupService;
+import org.xdi.service.security.Secure;
 import org.xdi.util.StringHelper;
 import org.xdi.util.Util;
+
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Action class for UMA inventory
  * 
  * @author Yuriy Movchan Date: 04/24/2013
  */
-@Name("umaInventoryAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@ConversationScoped
+@Named
+@Secure("#{permissionService.hasPermission('uma', 'access')}")
 public class UmaInventoryAction implements Serializable {
 
 	private static final long serialVersionUID = 2261095046179474395L;
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In
-	private ResourceSetService resourceSetService;
+	@Inject
+	private FacesMessages facesMessages;
 
-	@In
+	@Inject
+	private ConversationService conversationService;
+
+	@Inject
+	private ResourceSetService umaResourcesService;
+
+	@Inject
 	private ClientService clientService;
 
-	@In
+	@Inject
 	private ScopeDescriptionService scopeDescriptionService;
 
-	@In
+	@Inject
 	protected ImageService imageService;
 
-	@In
+	@Inject
 	private LookupService lookupService;
+
+    @Inject
+   	private UmaMetadata umaMetadata;
 
 	@NotNull
 	@Size(min = 0, max = 30, message = "Length of search string should be less than 30")
@@ -68,17 +78,19 @@ public class UmaInventoryAction implements Serializable {
 
 	private String oldSearchPattern;
 
-	private List<ResourceSet> resourcesList;
-	private List<ScopeDescription> scopesList;
+	private List<UmaResource> resourcesList;
+	private List<UmaScopeDescription> scopesList;
 	
 	private boolean initialized;
 
-	@Restrict("#{s:hasPermission('uma', 'access')}")
 	public String start() {
 		try {
-			resourceSetService.prepareResourceSetBranch();
+			umaResourcesService.prepareResourceBranch();
 		} catch (Exception ex) {
 			log.error("Failed to initialize form", ex);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to initialize UMA inventory");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 		
@@ -93,7 +105,6 @@ public class UmaInventoryAction implements Serializable {
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('uma', 'access')}")
 	public String search() {
 		if (Util.equals(this.oldSearchPattern, this.searchPattern)) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -102,15 +113,18 @@ public class UmaInventoryAction implements Serializable {
 		try {
 			if(searchPattern == null || searchPattern.isEmpty()){
 				this.scopesList = scopeDescriptionService.getAllScopeDescriptions(100);
-				this.resourcesList = resourceSetService.getAllResourceSets(100);
+				this.resourcesList = umaResourcesService.getAllResources(100);
 			}else{
 				this.scopesList = scopeDescriptionService.findScopeDescriptions(this.searchPattern, 100);
-				this.resourcesList = resourceSetService.findResourceSets(this.searchPattern, 100);
+				this.resourcesList = umaResourcesService.findResources(this.searchPattern, 100);
 			}
 			
 			this.oldSearchPattern = this.searchPattern;
 		} catch (Exception ex) {
 			log.error("Failed to find resource sets", ex);
+
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to filter UMA inventory by '#{umaInventoryAction.searchPattern}'");
+			conversationService.endConversation();
 
 			return OxTrustConstants.RESULT_FAILURE;
 		}
@@ -142,11 +156,11 @@ public class UmaInventoryAction implements Serializable {
 		return initialized;
 	}
 
-	public List<ResourceSet> getResourcesList() {
+	public List<UmaResource> getResourcesList() {
 		return resourcesList;
 	}
 
-	public List<ScopeDescription> getScopesList() {
+	public List<UmaScopeDescription> getScopesList() {
 		return scopesList;
 	}
 
@@ -156,6 +170,10 @@ public class UmaInventoryAction implements Serializable {
 
 	public void setSearchPattern(String searchPattern) {
 		this.searchPattern = searchPattern;
+	}
+
+	public UmaMetadata getUmaMetadata() {
+		return umaMetadata;
 	}
 
 }

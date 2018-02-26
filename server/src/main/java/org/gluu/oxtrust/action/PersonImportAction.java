@@ -18,40 +18,39 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.PreDestroy;
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.RandomStringUtils;
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.load.conf.ImportPersonConfiguration;
 import org.gluu.oxtrust.ldap.service.AttributeService;
 import org.gluu.oxtrust.ldap.service.ExcelService;
-import org.gluu.oxtrust.ldap.service.OrganizationService;
 import org.gluu.oxtrust.ldap.service.IPersonService;
+import org.gluu.oxtrust.ldap.service.OrganizationService;
 import org.gluu.oxtrust.model.GluuCustomAttribute;
 import org.gluu.oxtrust.model.GluuCustomPerson;
 import org.gluu.oxtrust.model.table.Table;
 import org.gluu.oxtrust.service.external.ExternalUpdateUserService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.AttributeData;
-import org.gluu.site.ldap.persistence.exception.EntryPersistenceException;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.Destroy;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Out;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.faces.FacesMessages;
-import org.jboss.seam.international.StatusMessage.Severity;
-import org.jboss.seam.international.StatusMessages;
-import org.jboss.seam.log.Log;
+import org.gluu.persist.exception.mapping.EntryPersistenceException;
+import org.gluu.persist.model.AttributeData;
+import org.gluu.persist.model.base.GluuBoolean;
+import org.gluu.persist.model.base.GluuStatus;
 import org.richfaces.event.FileUploadEvent;
 import org.richfaces.model.UploadedFile;
-import org.xdi.config.oxtrust.ApplicationConfiguration;
-import org.xdi.ldap.model.GluuStatus;
+import org.slf4j.Logger;
+import org.xdi.config.oxtrust.AppConfiguration;
 import org.xdi.model.GluuAttribute;
 import org.xdi.model.GluuAttributeDataType;
 import org.xdi.model.GluuUserRole;
+import org.xdi.service.security.Secure;
 import org.xdi.util.StringHelper;
 
 /**
@@ -59,45 +58,47 @@ import org.xdi.util.StringHelper;
  * 
  * @author Yuriy Movchan Date: 02.14.2011
  */
-@Name("personImportAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@ConversationScoped
+@Named
+@Secure("#{permissionService.hasPermission('person', 'import')}")
 public class PersonImportAction implements Serializable {
 
 	private static final long serialVersionUID = -1270460481895022468L;
 
-	private static final String[] PERSON_IMPORT_PERSON_LOCKUP_RETURN_ATTRIBUTES = { "uid", "displayName" };
+	private static final String[] PERSON_IMPORT_PERSON_LOCKUP_RETURN_ATTRIBUTES = { "uid", "displayName","mail" };
 	public static final String PERSON_PASSWORD_ATTRIBUTE = "userPassword";
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
+	
+	@Inject
+	private OrganizationService organizationService;
 
-	@In
-	StatusMessages statusMessages;
-
-	@In
+	@Inject
 	private IPersonService personService;
 	
-	@In
+	@Inject
 	private AttributeService attributeService;
 	
-	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
-	private ApplicationConfiguration applicationConfiguration;
+	@Inject
+	private AppConfiguration appConfiguration;
 	
-	@In
+	@Inject
 	private ExternalUpdateUserService externalUpdateUserService;
 
-	@In
-	private transient ExcelService excelService;
+	@Inject
+	private ExcelService excelService;
 
-	@In
+	@Inject
 	private FacesMessages facesMessages;
 
-	@In
+	@Inject
+	private ConversationService conversationService;
+
+	@Inject
 	private transient ImportPersonConfiguration importPersonConfiguration;
 	
-	@In(create = true)
-	@Out(scope = ScopeType.CONVERSATION)
+	@Inject
 	private CustomAttributeAction customAttributeAction;
 
 	private UploadedFile uploadedFile;
@@ -112,7 +113,6 @@ public class PersonImportAction implements Serializable {
 
 	private String inum;
 
-	@Restrict("#{s:hasPermission('import', 'person')}")
 	public String init() {
 		if (this.isInitialized) {
 			return OxTrustConstants.RESULT_SUCCESS;
@@ -128,13 +128,13 @@ public class PersonImportAction implements Serializable {
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('import', 'person')}")
 	public String importPersons() throws Exception {
 		if (!fileDataToImport.isReady()) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "File to import is invalid");
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
-		log.info("Attempting to add {0} persons", fileDataToImport.getPersons().size());
+		log.info("Attempting to add {} persons", fileDataToImport.getPersons().size());
 		try {
 			for (GluuCustomPerson person : fileDataToImport.getPersons()) {
 				
@@ -144,25 +144,28 @@ public class PersonImportAction implements Serializable {
 					result = save();
 				}
 				if(result.equals(OxTrustConstants.RESULT_SUCCESS)){
-					log.debug("Added new person: {0}", person.getUid());
+					log.debug("Added new person: {}", person.getUid());
 				}
 				else{
-					log.debug("Failed to Add new person: {0}", person.getUid());
+					log.debug("Failed to add new person: {}", person.getUid());
+					facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to add new person: '%s'", person.getUid());
 				}
 			}
 		} catch (EntryPersistenceException ex) {
 			log.error("Failed to add new person", ex);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to import users");
 
+			return OxTrustConstants.RESULT_FAILURE;
 		}
 
-		log.info("All {0} persons added successfully", fileDataToImport.getPersons().size());
+		log.info("All {} persons added successfully", fileDataToImport.getPersons().size());
+		facesMessages.add(FacesMessage.SEVERITY_INFO, "Users successfully imported");
 
 		removeFileToImport();
 
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('import', 'person')}")
 	public void validateFileToImport() throws Exception {
 		removeFileDataToImport();
 
@@ -196,12 +199,20 @@ public class PersonImportAction implements Serializable {
 		}
 	}
 
-	@Restrict("#{s:hasPermission('import', 'person')}")
-	public void cancel() {
+	public String cancel() {
+		boolean cancel = this.uploadedFile != null;
 		destroy();
+
+		if (cancel) {
+			return OxTrustConstants.RESULT_CLEAR;
+		}
+
+		conversationService.endConversation();
+		
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Destroy
+	@PreDestroy
 	public void destroy() {
 		removeFileDataToImport();
 		removeFileToImport();
@@ -219,7 +230,6 @@ public class PersonImportAction implements Serializable {
 		this.fileDataToImport.reset();
 	}
 
-	@Restrict("#{s:hasPermission('import', 'person')}")
 	public void uploadFile(FileUploadEvent event) {
 		removeFileToImport();
 
@@ -227,7 +237,6 @@ public class PersonImportAction implements Serializable {
 		this.fileData = this.uploadedFile.getData();
 	}
 
-	@Restrict("#{s:hasPermission('import', 'person')}")
 	public void removeFileToImport() {
 		if (uploadedFile != null) {
 			try {
@@ -244,19 +253,19 @@ public class PersonImportAction implements Serializable {
 	private boolean prepareAndValidateImportData(Table table, List<ImportAttribute> importAttributes) throws Exception {
 		String attributesString = getAttributesString(this.attributes);
 		if ((table == null) || (importAttributes == null)) {
-			facesMessages.add(Severity.ERROR, "Import failed. Missing columns: {0}", attributesString);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Import failed. Missing columns: %s", attributesString);
 			return false;
 		}
 
 		List<GluuAttribute> mandatoryAttributes = getMandatoryAttributes(this.attributes);
 		List<ImportAttribute> mandatoryImportAttributes = getMandatoryImportAttributes(importAttributes);
 		if (mandatoryAttributes.size() != mandatoryImportAttributes.size()) {
-			facesMessages.add(Severity.ERROR, "Import failed. Required columns: {0}", attributesString);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Import failed. Required columns: %s", attributesString);
 			return false;
 		}
 
 		if (table.getCountRows() < 1) {
-			facesMessages.add(Severity.ERROR, "Import failed. No data found");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Import failed. No data found");
 			return false;
 		}
 
@@ -277,7 +286,7 @@ public class PersonImportAction implements Serializable {
 		}
 
 		// Store persons
-		log.info("Prepared {0} persons for creation", persons.size());
+		log.info("Prepared {} persons for creation", persons.size());
 		this.fileDataToImport.setPersons(persons);
 
 		return true;
@@ -337,20 +346,35 @@ public class PersonImportAction implements Serializable {
 
 	private boolean validatePersons(List<GluuCustomPerson> persons) throws Exception {
 		Set<String> uids = new HashSet<String>();
+		Set<String> mails = new HashSet<String>();
 		for (GluuCustomPerson person : persons) {
 			uids.add(person.getUid());
+			mails.add(person.getMail());
 		}
 
 		if (uids.size() != persons.size()) {
-			facesMessages.add(Severity.ERROR, "Import failed. There are persons with simular uid(s) in input file");
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Import failed. There are persons with simular uid(s) in input file");
+			return false;
+		}
+		
+		if (mails.size() != persons.size()) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Import failed. There are persons with simular mail(s) in input file");
 			return false;
 		}
 
 		List<GluuCustomPerson> existPersons = personService.findPersonsByUids(new ArrayList<String>(uids),
 				PERSON_IMPORT_PERSON_LOCKUP_RETURN_ATTRIBUTES);
 		if (existPersons.size() > 0) {
-			facesMessages.add(Severity.ERROR, "Import failed. There are persons with existing uid(s): {0}",
-					personService.getPersonString(existPersons));
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Import failed. There are persons with existing uid(s): %s",
+					personService.getPersonUids(existPersons));
+			return false;
+		}
+		
+		List<GluuCustomPerson> existEmailPersons = personService.findPersonsByMailids(new ArrayList<String>(mails),
+				PERSON_IMPORT_PERSON_LOCKUP_RETURN_ATTRIBUTES);
+		if (existEmailPersons.size() > 0) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Import failed. There are persons with existing mailid(s): %s",
+					personService.getPersonMailids(existEmailPersons));
 			return false;
 		}
 
@@ -374,15 +398,15 @@ public class PersonImportAction implements Serializable {
 				String cellValue = table.getCellValue(importAttribute.getCol(), i);
 				if (StringHelper.isEmpty(cellValue)) {
 					if (attribute.isRequred()) {
-						facesMessages.add(Severity.ERROR, "Import failed. Empty '{0}' not allowed", attribute.getDisplayName());
+						facesMessages.add(FacesMessage.SEVERITY_ERROR, "Import failed. Empty '%s' not allowed", attribute.getDisplayName());
 						validTable = false;
 					}
 					continue;
 				}
-
+				
 				String ldapValue = getTypedValue(attribute, cellValue);
 				if (StringHelper.isEmpty(ldapValue)) {
-					facesMessages.add(Severity.ERROR, "Invalid value '{0}' in column '{1}' at row {2} were specified", cellValue,
+					facesMessages.add(FacesMessage.SEVERITY_ERROR, "Invalid value '%s' in column '%s' at row %s were specified", cellValue,
 							attribute.getDisplayName(), i + 1);
 					validTable = false;
 					continue;
@@ -400,7 +424,7 @@ public class PersonImportAction implements Serializable {
 
 		// Convert to GluuCustomPerson and set right DN
 		List<GluuCustomPerson> persons = personService.createEntities(entriesAttributes);
-		log.info("Found {0} persons in input Excel file", persons.size());
+		log.info("Found {} persons in input Excel file", persons.size());
 		
 		for(GluuCustomPerson person  : persons){
 			for (String key : entriesAttributes.keySet()){
@@ -411,6 +435,11 @@ public class PersonImportAction implements Serializable {
 							for(AttributeData AttributeData1 : entriesAttributes.get(key) ){
 								if(AttributeData1.getName().equalsIgnoreCase("userPassword")){
 									person.setUserPassword(AttributeData1.getValue());
+									flag=true;
+									break;
+								} else if(AttributeData1.getName().equalsIgnoreCase("gluuStatus")){
+									
+									person.setStatus(GluuStatus.getByValue(AttributeData1.getValue()));
 									flag=true;
 									break;
 								}
@@ -431,8 +460,13 @@ public class PersonImportAction implements Serializable {
 	private String getTypedValue(GluuAttribute attribute, String value) {
 		if (GluuAttributeDataType.STRING.equals(attribute.getDataType())) {
 			return value;
+		} else if (GluuAttributeDataType.BOOLEAN.equals(attribute.getDataType())) {
+			GluuBoolean gluuBoolean = GluuBoolean.getByValue(value);
+			if (gluuBoolean != null) {
+				return GluuBoolean.getByValue(value).toString();
+			}
 		}
-
+		
 		return null;
 	}
 
@@ -507,8 +541,8 @@ public class PersonImportAction implements Serializable {
 			this.person.setCustomAttributes(customAttributes);
 		}
 
-		customAttributeAction.initCustomAttributes(attributes, customAttributes, origins, applicationConfiguration
-				.getPersonObjectClassTypes(), applicationConfiguration.getPersonObjectClassDisplayNames());
+		customAttributeAction.initCustomAttributes(attributes, customAttributes, origins, appConfiguration
+				.getPersonObjectClassTypes(), appConfiguration.getPersonObjectClassDisplayNames());
 
 		if (newPerson) {
 			customAttributeAction.addCustomAttributes(personService.getMandatoryAtributes());
@@ -516,12 +550,11 @@ public class PersonImportAction implements Serializable {
 	}
 	
 	public String save() {
-		if (!OrganizationService.instance().isAllowPersonModification()) {
+		if (!organizationService.isAllowPersonModification()) {
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
 		personService.addCustomObjectClass(this.person);
-		this.person.setStatus(GluuStatus.ACTIVE);
 		
 			if (personService.getPersonByUid(this.person.getUid()) != null) {
 				return OxTrustConstants.RESULT_DUPLICATE;
@@ -547,12 +580,18 @@ public class PersonImportAction implements Serializable {
 			}
 
 			try {
-				if (externalUpdateUserService.isEnabled()) {
+				boolean runScript = externalUpdateUserService.isEnabled();
+				if (runScript) {
 					externalUpdateUserService.executeExternalAddUserMethods(this.person);
                 }
+
 				personService.addPerson(this.person);
+
+				if (runScript) {
+					externalUpdateUserService.executeExternalPostAddUserMethods(this.person);
+                }
 			} catch (Exception ex) {
-				log.error("Failed to add new person {0}", ex, this.person.getInum());
+				log.error("Failed to add new person {}", this.person.getInum(), ex);
 
 				return OxTrustConstants.RESULT_FAILURE;
 			}
@@ -561,7 +600,7 @@ public class PersonImportAction implements Serializable {
 
 	
 	public String initializePerson() {
-		if (!OrganizationService.instance().isAllowPersonModification()) {
+		if (!organizationService.isAllowPersonModification()) {
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 

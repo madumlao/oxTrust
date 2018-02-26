@@ -10,82 +10,86 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
-import javax.faces.context.FacesContext;
-import javax.faces.event.ActionEvent;
+import javax.annotation.PostConstruct;
+import javax.enterprise.context.ConversationScoped;
+import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
+import javax.inject.Named;
 
+import org.gluu.jsf2.message.FacesMessages;
+import org.gluu.jsf2.service.ConversationService;
 import org.gluu.oxtrust.ldap.service.AttributeService;
 import org.gluu.oxtrust.ldap.service.IPersonService;
 import org.gluu.oxtrust.ldap.service.ImageService;
 import org.gluu.oxtrust.ldap.service.ImapDataService;
 import org.gluu.oxtrust.model.GluuCustomAttribute;
 import org.gluu.oxtrust.model.GluuCustomPerson;
+import org.gluu.oxtrust.security.Identity;
+import org.gluu.oxtrust.service.external.ExternalUpdateUserService;
 import org.gluu.oxtrust.util.OxTrustConstants;
-import org.gluu.site.ldap.persistence.exception.LdapMappingException;
-import org.jboss.seam.ScopeType;
-import org.jboss.seam.annotations.Create;
-import org.jboss.seam.annotations.In;
-import org.jboss.seam.annotations.Logger;
-import org.jboss.seam.annotations.Name;
-import org.jboss.seam.annotations.Out;
-import org.jboss.seam.annotations.Scope;
-import org.jboss.seam.annotations.security.Restrict;
-import org.jboss.seam.log.Log;
-import org.xdi.config.oxtrust.ApplicationConfiguration;
+import org.gluu.persist.exception.mapping.BaseMappingException;
+import org.slf4j.Logger;
+import org.xdi.config.oxtrust.AppConfiguration;
 import org.xdi.model.GluuAttribute;
 import org.xdi.model.GluuIMAPData;
 import org.xdi.model.GluuImage;
 import org.xdi.model.GluuUserRole;
 import org.xdi.model.ImapPassword;
-import org.xdi.util.StringHelper;
+import org.xdi.service.security.Secure;
 
 /**
  * Action class for view and update profile actions.
  * 
  * @author Yuriy Movchan Date: 11.02.2010
  */
-@Name("userProfileAction")
-@Scope(ScopeType.CONVERSATION)
-@Restrict("#{identity.loggedIn}")
+@Named("userProfileAction")
+@ConversationScoped
+@Secure("#{permissionService.hasPermission('profile', 'access')}")
 public class UserProfileAction implements Serializable {
 
 	private static final long serialVersionUID = -8238855019631152823L;
 
 	private static final String tabName = "Attributes";
 
-	@Logger
-	private Log log;
+	@Inject
+	private Logger log;
 
-	@In
+	@Inject
+	private FacesMessages facesMessages;
+
+	@Inject
+	private ConversationService conversationService;
+
+	@Inject
 	private IPersonService personService;
 
-	@In
+	@Inject
 	private AttributeService attributeService;
 
-	@In
+	@Inject
 	private ImageService imageService;
 
-	@In(create = true)
-	@Out(scope = ScopeType.CONVERSATION)
+	@Inject
 	private CustomAttributeAction customAttributeAction;
 
-	@In(create = true)
-	@Out(scope = ScopeType.CONVERSATION)
+	@Inject
 	private UserPasswordAction userPasswordAction;
 
-	@In(create = true)
-	@Out(scope = ScopeType.CONVERSATION)
+	@Inject
 	private WhitePagesAction whitePagesAction;
-
-	@In
-	private GluuCustomPerson currentPerson;
 	
-	@In(create = true, value="imapDataService")
+	@Inject
 	private ImapDataService imapDataService;
 
-	@In(value = "#{oxTrustConfiguration.applicationConfiguration}")
-	private ApplicationConfiguration applicationConfiguration;
+	@Inject
+	private AppConfiguration appConfiguration;
+
+	@Inject
+	private Identity identity;
+
+	@Inject
+	private ExternalUpdateUserService externalUpdateUserService;
 
 	private GluuCustomPerson person;
 
@@ -102,7 +106,7 @@ public class UserProfileAction implements Serializable {
 		this.imapData = imapData;
 	}
 	
-	@Create
+	@PostConstruct
 	public void init() {
 		this.imapData = new GluuIMAPData();
 		this.imapData.setImapPassword(new ImapPassword());
@@ -111,19 +115,21 @@ public class UserProfileAction implements Serializable {
 
 	private static final String photoAttributes[][] = new String[][] { { "gluuPerson", "photo1" }, };
 
-	@Restrict("#{s:hasPermission('profile', 'access')}")
 	public String show() {
 		if (this.person != null) {
 			return OxTrustConstants.RESULT_SUCCESS;
 		}
 
 		try {
-			this.person = personService.getPersonByInum(currentPerson.getInum());
-		} catch (LdapMappingException ex) {
-			log.error("Failed to find person {0}", ex, currentPerson.getInum());
+			this.person = identity.getUser();
+		} catch (BaseMappingException ex) {
+			log.error("Failed to find person {}", identity.getUser().getInum(), ex);
 		}
 
 		if (this.person == null) {
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to load profile");
+			conversationService.endConversation();
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
@@ -138,7 +144,6 @@ public class UserProfileAction implements Serializable {
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
-	@Restrict("#{s:hasPermission('profile', 'access')}")
 	public String update() {
 		try {
 			if (this.imapData != null) {
@@ -155,13 +160,25 @@ public class UserProfileAction implements Serializable {
 			GluuCustomPerson person = this.person;
 			// TODO: Reffactor
 			person.setGluuOptOuts(optOuts.size() == 0 ? null : optOuts);
-			personService.updatePerson(person);
-		} catch (LdapMappingException ex) {
-			log.error("Failed to update profile {0}", ex, person.getInum());
+
+			boolean runScript = externalUpdateUserService.isEnabled();
+			if (runScript) {
+				externalUpdateUserService.executeExternalUpdateUserMethods(this.person);
+			}
+			personService.updatePerson(this.person);
+			if (runScript) {
+				externalUpdateUserService.executeExternalPostUpdateUserMethods(this.person);
+			}
+		} catch (BaseMappingException ex) {
+			log.error("Failed to update profile {}", person.getInum(), ex);
+			facesMessages.add(FacesMessage.SEVERITY_ERROR, "Failed to update profile '#{userProfileAction.person.displayName}'");
+
 			return OxTrustConstants.RESULT_FAILURE;
 		}
 
 		customAttributeAction.savePhotos();
+
+		facesMessages.add(FacesMessage.SEVERITY_INFO, "Profile '#{userProfileAction.person.displayName}' updated successfully");
 
 		return OxTrustConstants.RESULT_SUCCESS;
 	}
@@ -171,8 +188,11 @@ public class UserProfileAction implements Serializable {
 		customAttributeAction.removeCustomAttribute(inum);
 	}
 
-//	@Restrict("#{s:hasPermission('person', 'access')}")
-	public void cancel() {
+	public String cancel() {
+		facesMessages.add(FacesMessage.SEVERITY_INFO, "Profile modification canceled");
+		conversationService.endConversation();
+
+		return OxTrustConstants.RESULT_SUCCESS;
 	}
 
 	private void initAttributes() {
@@ -181,8 +201,8 @@ public class UserProfileAction implements Serializable {
 
 		List<GluuCustomAttribute> customAttributes = this.person.getCustomAttributes();
 
-		customAttributeAction.initCustomAttributes(attributes, customAttributes, origins, applicationConfiguration
-				.getPersonObjectClassTypes(), applicationConfiguration.getPersonObjectClassDisplayNames());
+		customAttributeAction.initCustomAttributes(attributes, customAttributes, origins, appConfiguration
+				.getPersonObjectClassTypes(), appConfiguration.getPersonObjectClassDisplayNames());
 	}
 
 	public void addOpts() {

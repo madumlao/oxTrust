@@ -23,14 +23,16 @@ import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Enumeration;
 import java.util.List;
+import net.shibboleth.idp.authn.ExternalAuthentication;
+import org.gluu.oxauth.client.authentication.AuthenticationFilter;
 
 /**
- * Validates grants recieved from OAuth server
+ * Validates grants recieved from OAuth server.
+ * 
+ * Add OAuth data to servlet session. Add remoteUser/Principal to servlet request for IDP.
  *
  * @author Yuriy Movchan
- * @version 0.1, 03/20/2013
  */
 public class OAuthValidationFilter extends AbstractOAuthFilter {
 
@@ -41,50 +43,53 @@ public class OAuthValidationFilter extends AbstractOAuthFilter {
     @Override
     public final void doFilter(final ServletRequest servletRequest, final ServletResponse servletResponse, final FilterChain filterChain) throws IOException, ServletException {
 
-		log.debug("Attempting to validate grants");
+        log.debug("Attempting to validate grants");
         final HttpServletRequest request = (HttpServletRequest) servletRequest;
         final HttpServletResponse response = (HttpServletResponse) servletResponse;
-
-        // TODO: check chain
-        if (!preFilter(servletRequest, servletResponse, filterChain)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+        
+        String conversation = request.getHeader(ExternalAuthentication.CONVERSATION_KEY);
 
         final HttpSession session = request.getSession(false);
+        if (session != null && (conversation == null || conversation.isEmpty())) {
 
-		String conversation = null;
-		if (session != null) {
+                conversation = (String)session.getAttribute(AuthenticationFilter.SESSION_CONVERSATION_KEY);
+                if (conversation == null || conversation.isEmpty()) {
+                        throw new ServletException("IDP v3 conversation param is null or empty");
+                }
 
-			conversation = (String)session.getAttribute("conversation");
-			if (conversation == null || conversation.isEmpty()) {
-				throw new ServletException("IDP v3 conversation param is null or empty");
-			}
+                log.debug("########## SESSION conversation = " + conversation);
 
-			log.debug("########## SESSION conversation = " + conversation);
-
-		} else {
-			log.error("Session not created yet");
-		}
-
+        } else {
+                log.error("Session not created yet");
+        }
+        
+        CustomHttpServletRequest customRequest = new CustomHttpServletRequest(request);
+        customRequest.addCustomParameter(ExternalAuthentication.CONVERSATION_KEY, conversation);
+        
+        if (!preFilter(servletRequest, servletResponse, filterChain)) {
+            // unauthorized way
+            filterChain.doFilter(customRequest, response);
+            return;
+        }
+        
+        // authorized way
         final String code = getParameter(request, Configuration.OAUTH_CODE);
         final String idToken = getParameter(request, Configuration.OAUTH_ID_TOKEN);
 
-		log.debug("Attempting to validate code: " + code + " and id_token: " + idToken);
-		try {
-			OAuthData oAuthData = getOAuthData(request, code, idToken);
-			session.setAttribute(Configuration.SESSION_OAUTH_DATA, oAuthData);
+        log.debug("Attempting to validate code: " + code + " and id_token: " + idToken);
+        try {
+                OAuthData oAuthData = getOAuthData(request, code, idToken);
+                session.setAttribute(Configuration.SESSION_OAUTH_DATA, oAuthData);
+                
+                customRequest.setRemoteUser(oAuthData.getUserUid());
         } catch (Exception ex) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             log.warn("Failed to validate code and id_token", ex);
 
             throw new ServletException(ex);
         }
-
-		CustomHttpServletRequest customRequest = new CustomHttpServletRequest(request);
-		customRequest.addCustomParameter("conversation", conversation);
-
-		filterChain.doFilter(customRequest, response);
+                
+        filterChain.doFilter(customRequest, response);
     }
 
     /**
@@ -113,7 +118,6 @@ public class OAuthValidationFilter extends AbstractOAuthFilter {
         String oAuthHost = getOAuthHost(oAuthAuthorizeUrl);
 
         String oAuthTokenUrl = getPropertyFromInitParams(null, Configuration.OAUTH_PROPERTY_TOKEN_URL, null);
-        String oAuthValidationUrl = getPropertyFromInitParams(null, Configuration.OAUTH_PROPERTY_TOKEN_VALIDATION_URL, null);
         String oAuthUserInfoUrl = getPropertyFromInitParams(null, Configuration.OAUTH_PROPERTY_USERINFO_URL, null);
 
         String oAuthClientId = getPropertyFromInitParams(null, Configuration.OAUTH_PROPERTY_CLIENT_ID, null);
@@ -142,43 +146,27 @@ public class OAuthValidationFilter extends AbstractOAuthFilter {
         String accessToken = tokenResponse.getAccessToken();
         log.trace("accessToken : " + accessToken);
 
-        // 2. Validate the access token
-        log.trace("Validating access token ");
-        ValidateTokenClient validateTokenClient = new ValidateTokenClient(oAuthValidationUrl);
-        ValidateTokenResponse tokenValidationResponse = validateTokenClient.execValidateToken(accessToken);
-        log.trace(" response3.getStatus() : " + tokenValidationResponse.getStatus());
+        log.info("Session validation successful. User is logged in");
+        UserInfoClient userInfoClient = new UserInfoClient(oAuthUserInfoUrl);
+        UserInfoResponse userInfoResponse = userInfoClient.execUserInfo(accessToken);
 
-        log.info("validate check session status:" + tokenValidationResponse.getStatus());
-        if (tokenValidationResponse.getErrorDescription() != null) {
-            log.error("validate token status message:" + tokenValidationResponse.getErrorDescription());
+        OAuthData oAuthData = new OAuthData();
+        oAuthData.setHost(oAuthHost);
+        // Determine uid
+        List<String> uidValues = userInfoResponse.getClaims().get(JwtClaimName.USER_NAME);
+        if ((uidValues == null) || (uidValues.size() == 0)) {
+            log.error("User infor response doesn't contains uid claim");
+            return null;
         }
 
-        if (tokenValidationResponse.getStatus() == 200) {
-            log.info("Session validation successful. User is logged in");
-            UserInfoClient userInfoClient = new UserInfoClient(oAuthUserInfoUrl);
-            UserInfoResponse userInfoResponse = userInfoClient.execUserInfo(accessToken);
+        oAuthData.setUserUid(uidValues.get(0));
+        oAuthData.setAccessToken(accessToken);
+        oAuthData.setAccessTokenExpirationInSeconds(tokenResponse.getExpiresIn());
+        oAuthData.setScopes(scopes);
+        oAuthData.setIdToken(idToken);
 
-            OAuthData oAuthData = new OAuthData();
-            oAuthData.setHost(oAuthHost);
-            // Determine uid
-            List<String> uidValues = userInfoResponse.getClaims().get(JwtClaimName.USER_NAME);
-            if ((uidValues == null) || (uidValues.size() == 0)) {
-                log.error("User infor response doesn't contains uid claim");
-                return null;
-            }
-
-            oAuthData.setUserUid(uidValues.get(0));
-            oAuthData.setAccessToken(accessToken);
-            oAuthData.setAccessTokenExpirationInSeconds(tokenValidationResponse.getExpiresIn());
-            oAuthData.setScopes(scopes);
-            oAuthData.setIdToken(idToken);
-
-            log.trace("User uid: " + oAuthData.getUserUid());
-            return oAuthData;
-        }
-
-        log.error("Token validation failed. User is NOT logged in");
-        return null;
+        log.trace("User uid: " + oAuthData.getUserUid());
+        return oAuthData;
     }
 
     private String getOAuthHost(String oAuthAuthorizeUrl) {

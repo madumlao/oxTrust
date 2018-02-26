@@ -1,14 +1,13 @@
 <!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <ui:composition xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:s="http://jboss.org/schema/seam/taglib"
-    xmlns:ui="http://java.sun.com/jsf/facelets"
-    xmlns:f="http://java.sun.com/jsf/core"
-    xmlns:h="http://java.sun.com/jsf/html"
+    xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+    xmlns:f="http://xmlns.jcp.org/jsf/core"
+    xmlns:h="http://xmlns.jcp.org/jsf/html"
     xmlns:a4j="http://richfaces.org/a4j"
     xmlns:rich="http://richfaces.org/rich"
-    xmlns:richext="http://java.sun.com/jsf/composite/richext"
-    xmlns:c="http://java.sun.com/jsp/jstl/core">
+    xmlns:richext="http://xmlns.jcp.org/jsf/composite/richext"
+    xmlns:c="http://xmlns.jcp.org/jsp/jstl/core">
 	<h:outputStylesheet>
 		.rf-pick-btn {
 		    width: 100%;
@@ -69,7 +68,7 @@
 
 	<rich:popupPanel id="TRConfigPanel" onmaskclick="#{rich:component('TRConfigPanel')}.hide()" keepVisualState="true" autosized="true" zindex="2000" top="60" >
         <f:facet name="header">
-            <h:outputText value="Relying Party configuration" />
+            <h:outputText value="#{msg['trustmanager.relyingPartyConfiguration']}" />
         </f:facet>
 
         <f:facet name="controls">
@@ -77,12 +76,9 @@
         </f:facet>
 
         <h:form>
-            <!-- Workaround which required by manual tab panel. TODO: Remove after upgrade to SEAM 2.3.1 -->
-            <input type='hidden' name='cid' value='#{conversation.id}' />
-
             <h:panelGrid columns="1" id="RelyingPartyMenu" width="700"  style="margin: 0 auto; ">
                 <rich:pickList id="profileConfigurationSelection" value="#{relyingPartyAction.profileConfigurations}"
-                    listsHeight="150" listWidth="230" sourceCaption="Available Profile Configurations" targetCaption="Selected Profile Configurations">
+                    listsHeight="150" listWidth="330" sourceCaption="#{msg['trustmanager.availableProfileConfigurations']}" targetCaption="#{msg['trustmanager.selectedProfileConfigurations']}">
 
                     <f:selectItems value="#{relyingPartyAction.availableProfileConfigurations}" var="item" itemValue="#{item}" itemLabel="#{item}" />
                     <f:converter converterId="profileConfigurationConverter" />
@@ -91,7 +87,7 @@
                 </rich:pickList>
 
                 <h:panelGroup id="ProfileConfigurationConfigMenu">
-                    <h:panelGroup style="overflow:auto; height: 300px; width: 900px;" layout="block" rendered="#{relyingPartyAction.profileConfigurations.size() > 0}">
+                    <h:panelGroup style="overflow:auto; height: 300px; width: 100%;" layout="block" rendered="#{relyingPartyAction.profileConfigurations.size() > 0}">
                         <!--
                         <ui:decorate template="/WEB-INF/incl/trustmanager/profileConfiguration/saml1sso.xhtml">
                             <ui:param name="_relyingPartyAction" value="#{relyingPartyAction}" />
@@ -122,8 +118,8 @@
             </h:panelGrid>
 
             <div id="relyingPartyUpdate">
-                <a4j:commandButton value="Save" action="#{relyingPartyAction.saveFilters}" oncomplete="#{rich:component('TRConfigPanel')}.hide()" render="RelyingPartyMenu" />
-                <a4j:commandButton value="Back" onclick="#{rich:component('TRConfigPanel')}.hide()" immediate="true" />
+                <a4j:commandButton value="#{msg['trustmanager.save']}" action="#{relyingPartyAction.saveFilters}" oncomplete="#{rich:component('TRConfigPanel')}.hide()" render="RelyingPartyMenu" />
+                <a4j:commandButton value="#{msg['trustmanager.back']}" onclick="#{rich:component('TRConfigPanel')}.hide()" immediate="true" />
             </div>
         </h:form>
     </rich:popupPanel>

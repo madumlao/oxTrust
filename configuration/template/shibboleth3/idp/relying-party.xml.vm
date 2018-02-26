@@ -66,12 +66,12 @@
     </bean>
 
     <util:list id="shibboleth.RelyingPartyOverrides">
-
+<!-- TrustRelationships -->
 #foreach( $trustRelationship in $trustParams.trusts )
-    #if($trustRelationship.specificRelyingPartyConfig and (not $trustRelationship.isFederation()))
-
+    
+    <!-- TrustRelationship -->
         #set ($profileConfigMap = $trustRelationship.profileConfigurations)
-        #if(!$profileConfigMap.isEmpty())
+        <!--#if(!$profileConfigMap.isEmpty())-->
 
         #set($entityId = $trustParams.trustEntityIds.get($trustRelationship.inum).get(0))
         #set($relyingPartyId = $StringHelper.removePunctuation($trustRelationship.inum))
@@ -79,6 +79,7 @@
         <bean parent="RelyingPartyByName" id="$relyingPartyId" c:relyingPartyIds="$entityId">
             <property name="profileConfigurations">
                 <list>
+            #if($trustRelationship.specificRelyingPartyConfig and (not $trustRelationship.isFederation()))
                 #foreach ($mapEntry in $profileConfigMap.entrySet())
 
                     #set($profileConfig = $mapEntry.value)
@@ -284,12 +285,11 @@
 
                     #end
                 #end
-
+            #end
                 </list>
             </property>
         </bean>
-        #end
-    #end
+        <!-- #end -->
 #end
 
     </util:list>
